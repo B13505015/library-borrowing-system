@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>我的借閱紀錄 | Library System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin-body">
+    <div class="wrapper">
+        <nav class="navbar">
+            <div class="navbar-brand">Library System</div>
+            <ul class="navbar-nav">
+                <li><a href="user-dashboard.html">首頁</a></li>
+                <li><a href="search-books.html">查詢書籍</a></li>
+                <li class="active"><a href="borrow-records.html">我的借閱紀錄</a></li>
+                <li><a href="login.html">登出</a></li>
+            </ul>
+        </nav>
+
+        <main class="main-content container">
+            <header class="content-header">
+                <h2>我的借閱紀錄</h2>
+                <p>管理您的借書狀態與還書期限</p>
+            </header>
+
+            <div class="card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>書名</th>
+                            <th>借書日期</th>
+                            <th>到期日期</th>
+                            <th>還書日期</th>
+                            <th>狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="borrowRecordTableBody">
+                        <!-- 資料由 JS 渲染 -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    <script src="js/borrow-records.js"></script>
+</body>
+</html>

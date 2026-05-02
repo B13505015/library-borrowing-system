@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>借閱紀錄管理 | Library System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin-layout">
+    <!-- 左側側邊欄：確保這一段跟 Dashboard 一模一樣 -->
+    <div class="sidebar">
+        <div class="sidebar-brand">Library Admin</div>
+        <ul class="sidebar-menu">
+            <li><a href="admin-dashboard.html">系統總覽</a></li>
+            <li><a href="admin-book-management.html">書籍管理</a></li>
+            <li><a href="admin-user-management.html">使用者管理</a></li>
+            <li class="active"><a href="admin-borrow-management.html">借閱紀錄管理</a></li>
+            <li class="logout"><a href="login.html">登出</a></li>
+        </ul>
+    </div>
+
+    <!-- 右側內容區：admin-main 類別會提供 240px 的左邊距，避開 Sidebar -->
+    <main class="admin-main">
+        <header class="admin-header">
+            <h2>全館借閱紀錄管理</h2>
+            <div class="admin-info">管理員：B13505015</div>
+        </header>
+
+        <div class="filter-box card">
+            <div class="search-input-group">
+                <input type="text" id="adminBorrowSearchInput" placeholder="搜尋學號、姓名或書名...">
+                <button id="adminBorrowSearchBtn" class="btn btn-secondary">查詢紀錄</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>學號</th>
+                        <th>姓名</th>
+                        <th>書名</th>
+                        <th>借書日期</th>
+                        <th>到期日期</th>
+                        <th>狀態</th>
+                    </tr>
+                </thead>
+                <tbody id="adminBorrowTableBody">
+                    <!-- 資料由 js/admin-borrow-management.js 渲染 -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="js/admin-borrow-management.js"></script>
+
+<!-- 登出確認 Modal -->
+<div id="logoutConfirmModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 350px;">
+        <div class="modal-header"><h3>確認登出</h3></div>
+        <div class="modal-body text-center">
+            <p>您確定要離開系統嗎？</p>
+        </div>
+        <div class="modal-footer logout-footer">
+            <button class="btn btn-outline" id="cancelLogoutBtn">取消</button>
+            <button class="btn btn-danger" id="confirmLogoutBtn">確定登出</button>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+
+<!-- 在每個管理員 HTML 底部引入 -->
+<script src="js/common.js"></script>
+<script src="js/admin-xxx.js"></script>

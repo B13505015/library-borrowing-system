@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>使用者管理 | Library System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin-layout">
+    <!-- 左側側邊欄：這一段在每個管理頁面都必須完全一樣 -->
+    <div class="sidebar">
+        <div class="sidebar-brand">Library Admin</div>
+        <ul class="sidebar-menu">
+            <li><a href="admin-dashboard.html">系統總覽</a></li>
+            <li><a href="admin-book-management.html">書籍管理</a></li>
+            <li class="active"><a href="admin-user-management.html">使用者管理</a></li>
+            <li><a href="admin-borrow-management.html">借閱紀錄管理</a></li>
+            <li class="logout"><a href="login.html">登出</a></li>
+        </ul>
+    </div>
+
+    <!-- 右側內容區：必須要有 admin-main 這個類別來避開左邊的 sidebar -->
+    <main class="admin-main">
+        <header class="admin-header">
+            <h2>使用者管理</h2>
+            <div class="admin-info">管理員：B13505015</div>
+        </header>
+
+        <div class="filter-box card">
+            <input type="text" id="adminUserSearchInput" placeholder="搜尋學號或姓名...">
+            <button id="adminUserSearchBtn" class="btn btn-secondary">搜尋</button>
+        </div>
+
+        <div class="card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>學號</th>
+                        <th>姓名</th>
+                        <th>狀態</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="adminUserTableBody">
+                    <!-- 資料由 js/admin-user-management.js 渲染 -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="js/admin-user-management.js"></script>
+
+<!-- 登出確認 Modal -->
+<div id="logoutConfirmModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 350px;">
+        <div class="modal-header"><h3>確認登出</h3></div>
+        <div class="modal-body text-center">
+            <p>您確定要離開系統嗎？</p>
+        </div>
+        <div class="modal-footer logout-footer">
+            <button class="btn btn-outline" id="cancelLogoutBtn">取消</button>
+            <button class="btn btn-danger" id="confirmLogoutBtn">確定登出</button>
+        </div>
+    </div>
+</div>
+</body>
+</html>
