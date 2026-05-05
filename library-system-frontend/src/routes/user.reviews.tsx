@@ -26,10 +26,10 @@ function Page() {
   const loadBorrowedBooks = async () => {
     if (!user) return;
     const records = (await getMyBorrowRecords(user.studentId)).data ?? [];
-    const ids = Array.from(new Set(records.map((r) => String(r.bookId))));
+    const titles = Array.from(new Set(records.map((r) => r.bookTitle).filter(Boolean)));
     const result: Book[] = [];
-    for (const id of ids) {
-      const found = (await searchBooks(id)).data?.find((b) => b.id === id);
+    for (const title of titles) {
+      const found = (await searchBooks(title)).data?.find((b) => b.title === title);
       if (found) result.push(found);
     }
     setBorrowedBooks(result);
