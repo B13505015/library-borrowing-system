@@ -1,4 +1,4 @@
-export type BookStatus = "AVAILABLE" | "BORROWED";
+export type BookStatus = "AVAILABLE" | "BORROWED" | "REMOVED";
 
 export interface Book {
   id: string;
