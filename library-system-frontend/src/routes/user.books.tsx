@@ -74,7 +74,11 @@ function SearchBooksPage() {
 
     try {
       await borrowBook(user.userId, Number(book.id), borrowDays);
-      toast.success(`已成功借閱《${book.title}》${borrowDays} 天`);
+      toast.success(
+        book.status === "AVAILABLE"
+          ? `已成功借閱《${book.title}》${borrowDays} 天`
+          : `《${book.title}》目前借出中，已送出預約申請`,
+      );
       setDetail(null);
       setBorrowDays(7);
       setHistory([]);
@@ -185,11 +189,11 @@ function SearchBooksPage() {
                         variant="default"
                         size="sm"
                         className="ml-2"
-                        disabled={b.status !== "AVAILABLE" || borrowingId === b.id}
+                        disabled={b.status === "REMOVED" || borrowingId === b.id}
                         onClick={() => showBookDetail(b)}
                       >
                         <BookPlus className="mr-1 h-4 w-4" />
-                        借閱
+                        {b.status === "AVAILABLE" ? "借閱" : b.status === "BORROWED" ? "預約" : "不可借"}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -249,8 +253,8 @@ function SearchBooksPage() {
                   </select>
                   <p className="mt-2 text-xs text-muted-foreground">
                     {user?.level === "VIP"
-                      ? "VIP 使用者可借閱最長 14 天"
-                      : "一般使用者可借閱最長 7 天"}
+                      ? "VIP 使用者可借閱最長 14 天，借出中的書籍可優先預約"
+                      : "一般使用者可借閱最長 7 天，借出中的書籍可加入預約"}
                   </p>
                 </div>
 
@@ -299,16 +303,13 @@ function SearchBooksPage() {
                   <Button variant="outline" onClick={() => setDetail(null)}>
                     關閉
                   </Button>
-                  <Button
-                    disabled={detail.status !== "AVAILABLE" || borrowingId === detail.id}
-                    onClick={() => handleBorrow(detail)}
-                  >
+                  <Button disabled={detail.status === "REMOVED" || borrowingId === detail.id} onClick={() => handleBorrow(detail)}>
                     {borrowingId === detail.id ? (
                       <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                     ) : (
                       <BookPlus className="mr-1 h-4 w-4" />
                     )}
-                    借閱此書
+                    {detail.status === "AVAILABLE" ? "借閱此書" : detail.status === "BORROWED" ? "預約此書" : "此書不可借"}
                   </Button>
                 </DialogFooter>
               </div>
