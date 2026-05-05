@@ -29,5 +29,3 @@ source library-api/library-api/database/seed.sql;
 ### 3) 設定 API 連線
 
 請調整 `library-api/library-api/src/main/resources/application.properties` 內的 MySQL 連線資訊。
-
-> 請勿將 MySQL 實體資料檔、資料目錄與密碼提交到 Git。
