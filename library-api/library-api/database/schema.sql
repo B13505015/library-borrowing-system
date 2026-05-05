@@ -67,3 +67,83 @@ CREATE TABLE IF NOT EXISTS borrow_records (
     INDEX idx_borrow_book_borrow (book_id, borrow_date),
     INDEX idx_borrow_due_date (due_date)
 ) ENGINE=InnoDB;
+
+
+CREATE TABLE IF NOT EXISTS loan_policies (
+    role_level ENUM('NORMAL','VIP') PRIMARY KEY,
+    max_active_loans INT NOT NULL,
+    overdue_fine_per_day DECIMAL(10,2) NOT NULL,
+    reservation_priority INT NOT NULL,
+    fine_grace_days INT NOT NULL DEFAULT 0,
+    CONSTRAINT chk_max_active_loans_positive CHECK (max_active_loans > 0),
+    CONSTRAINT chk_overdue_fine_non_negative CHECK (overdue_fine_per_day >= 0),
+    CONSTRAINT chk_fine_grace_days_non_negative CHECK (fine_grace_days >= 0)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS reservations (
+    reservation_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    book_id INT NOT NULL,
+    status ENUM('WAITING','NOTIFIED','FULFILLED','CANCELLED','EXPIRED') NOT NULL DEFAULT 'WAITING',
+    queue_priority INT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    notified_at DATETIME NULL,
+    expires_at DATETIME NULL,
+    CONSTRAINT fk_reservations_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT fk_reservations_book FOREIGN KEY (book_id) REFERENCES books(book_id),
+    INDEX idx_reservations_book_status_priority (book_id, status, queue_priority, created_at),
+    INDEX idx_reservations_user_status (user_id, status)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS favorites (
+    favorite_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    book_id INT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_favorites_book FOREIGN KEY (book_id) REFERENCES books(book_id) ON DELETE CASCADE,
+    UNIQUE KEY uk_favorites_user_book (user_id, book_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS user_penalties (
+    penalty_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    borrow_record_id INT NULL,
+    penalty_type ENUM('WARNING','FINE') NOT NULL,
+    amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+    reason VARCHAR(255),
+    status ENUM('OPEN','PAID','WAIVED') NOT NULL DEFAULT 'OPEN',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_penalties_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT fk_penalties_borrow_record FOREIGN KEY (borrow_record_id) REFERENCES borrow_records(record_id),
+    CONSTRAINT chk_penalty_amount_non_negative CHECK (amount >= 0),
+    INDEX idx_penalties_user_status (user_id, status)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS user_suspensions (
+    suspension_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    start_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    end_at DATETIME NULL,
+    reason VARCHAR(255),
+    created_by_admin INT NULL,
+    CONSTRAINT fk_suspensions_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT fk_suspensions_admin FOREIGN KEY (created_by_admin) REFERENCES admins(admin_id),
+    INDEX idx_suspensions_user_active (user_id, is_active)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS reviews (
+    review_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    book_id INT NOT NULL,
+    borrow_record_id INT NULL,
+    rating TINYINT NOT NULL,
+    comment TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT fk_reviews_book FOREIGN KEY (book_id) REFERENCES books(book_id),
+    CONSTRAINT fk_reviews_borrow_record FOREIGN KEY (borrow_record_id) REFERENCES borrow_records(record_id),
+    CONSTRAINT chk_rating_range CHECK (rating BETWEEN 1 AND 5),
+    INDEX idx_reviews_book_created (book_id, created_at)
+) ENGINE=InnoDB;

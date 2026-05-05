@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.yourteam.library.config.DBConnection;
+
+import library_api.dto.PopularBookResponse;
 import com.yourteam.library.entity.Book;
 
 public class BookRepository {
@@ -294,5 +296,60 @@ public class BookRepository {
         }
 
         return false;
+    }
+
+    public int countAllBooks() {
+        String sql = "SELECT COUNT(*) AS c FROM books";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getInt("c");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    public int countBorrowedBooks() {
+        String sql = "SELECT COUNT(*) AS c FROM books WHERE status = 'BORROWED'";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getInt("c");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+public List<PopularBookResponse> findPopularBooks(String sortBy, int limit) {
+        List<PopularBookResponse> list = new ArrayList<>();
+        String orderBy = "borrow_count DESC, avg_rating DESC";
+        if ("rating".equalsIgnoreCase(sortBy)) {
+            orderBy = "avg_rating DESC, review_count DESC, borrow_count DESC";
+        }
+        String sql = "SELECT b.book_id, b.title, COUNT(DISTINCT br.record_id) AS borrow_count, "
+                + "COALESCE(AVG(r.rating), 0) AS avg_rating, COUNT(DISTINCT r.review_id) AS review_count "
+                + "FROM books b "
+                + "LEFT JOIN borrow_records br ON br.book_id = b.book_id "
+                + "LEFT JOIN reviews r ON r.book_id = b.book_id "
+                + "WHERE b.status <> 'REMOVED' "
+                + "GROUP BY b.book_id, b.title "
+                + "ORDER BY " + orderBy + " LIMIT ?";
+
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, limit);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                list.add(new PopularBookResponse(
+                        rs.getInt("book_id"),
+                        rs.getString("title"),
+                        rs.getInt("borrow_count"),
+                        rs.getDouble("avg_rating"),
+                        rs.getInt("review_count")
+                ));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return list;
     }
 }

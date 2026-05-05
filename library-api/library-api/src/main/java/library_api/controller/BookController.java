@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import library_api.dto.EditBookRequest;
+import library_api.dto.PopularBookResponse;
 
 @RestController
 @RequestMapping("/api/books")
@@ -56,6 +57,16 @@ public class BookController {
         List<BookResponse> responseList = convertToBookResponseList(books);
 
         return new ApiResponse<>(true, responseList, "搜尋書籍成功");
+    }
+
+
+    @GetMapping("/popular")
+    public ApiResponse<List<PopularBookResponse>> getPopularBooks(
+            @RequestParam(defaultValue = "borrow") String sortBy,
+            @RequestParam(defaultValue = "5") int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 20));
+        List<PopularBookResponse> list = bookRepository.findPopularBooks(sortBy, safeLimit);
+        return new ApiResponse<>(true, list, "查詢熱門書籍成功");
     }
 
     // 把 Book entity 轉成 BookResponse DTO

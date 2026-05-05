@@ -3,6 +3,14 @@ import type { Book, BookFormValues } from "@/types/book";
 import { http } from "./http";
 import type { BorrowRecord } from "@/types/borrowRecord";
 
+export type PopularBook = {
+  bookId: number;
+  title: string;
+  borrowCount: number;
+  avgRating: number;
+  reviewCount: number;
+};
+
 // 查全部書籍
 export async function getAllBooks(): Promise<ApiResponse<Book[]>> {
   try {
@@ -131,3 +139,15 @@ export async function getBookBorrowHistory(bookId: string | number): Promise<Api
     throw new ApiError("查詢書籍借還紀錄失敗");
   }
 }
+
+export async function getPopularBooks(sortBy: "borrow" | "rating", limit = 5): Promise<ApiResponse<PopularBook[]>> {
+  try {
+    const response = await http.get<PopularBook[]>(`/books/popular?sortBy=${sortBy}&limit=${limit}`);
+    if (!response.success || !response.data) throw new ApiError(response.message || "查詢熱門書籍失敗");
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("查詢熱門書籍失敗");
+  }
+}
+

@@ -24,3 +24,14 @@ VALUES
 ON DUPLICATE KEY UPDATE
 status = VALUES(status),
 updated_at = CURRENT_TIMESTAMP;
+
+
+INSERT INTO loan_policies (role_level, max_active_loans, overdue_fine_per_day, reservation_priority, fine_grace_days)
+VALUES
+('NORMAL', 3, 5.00, 1, 0),
+('VIP', 5, 2.00, 10, 1)
+ON DUPLICATE KEY UPDATE
+max_active_loans = VALUES(max_active_loans),
+overdue_fine_per_day = VALUES(overdue_fine_per_day),
+reservation_priority = VALUES(reservation_priority),
+fine_grace_days = VALUES(fine_grace_days);

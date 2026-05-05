@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,6 +18,7 @@ import com.yourteam.library.entity.User;
 import com.yourteam.library.repository.BookRepository;
 import com.yourteam.library.repository.BorrowRecordRepository;
 import com.yourteam.library.repository.UserRepository;
+import com.yourteam.library.service.UserService;
 
 import library_api.dto.ApiResponse;
 import library_api.dto.BorrowRecordResponse;
@@ -28,11 +31,13 @@ public class AdminBorrowRecordController {
     private final BorrowRecordRepository borrowRecordRepository;
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
+    private final UserService userService;
 
     public AdminBorrowRecordController() {
         this.borrowRecordRepository = new BorrowRecordRepository();
         this.userRepository = new UserRepository();
         this.bookRepository = new BookRepository();
+        this.userService = new UserService();
     }
 
     @GetMapping
@@ -80,6 +85,26 @@ public class AdminBorrowRecordController {
         }
 
         return new ApiResponse<>(true, responseList, "查詢借閱紀錄成功");
+    }
+
+
+    @PatchMapping("/{recordId}/suspend-user")
+    public ApiResponse<Boolean> suspendByRecordId(@PathVariable int recordId) {
+        BorrowRecord record = borrowRecordRepository.findByRecordId(recordId);
+        if (record == null) {
+            return new ApiResponse<>(false, null, "找不到借閱紀錄");
+        }
+
+        User user = userRepository.findByUserId(record.getUserId());
+        if (user == null) {
+            return new ApiResponse<>(false, null, "找不到使用者");
+        }
+
+        boolean success = userService.suspendUser(user.getStudentNo());
+        if (success) {
+            return new ApiResponse<>(true, true, "已停權該借閱使用者");
+        }
+        return new ApiResponse<>(false, null, "停權失敗");
     }
 
     private String computeStatus(BorrowRecord record) {

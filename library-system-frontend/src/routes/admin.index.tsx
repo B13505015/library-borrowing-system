@@ -42,8 +42,8 @@ function AdminDashboardPage() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <div className="mt-6 grid gap-5 lg:grid-cols-3">
+        <Card className="lg:col-span-2 border-0 bg-card/80 shadow-sm">
           <CardContent className="p-6">
             <h2 className="mb-4 text-lg font-semibold">最近借閱活動</h2>
             {recent.loading ? (
@@ -51,7 +51,7 @@ function AdminDashboardPage() {
             ) : recent.error ? (
               <ErrorState message={recent.error} onRetry={recent.refetch} />
             ) : !recent.data || recent.data.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">暫無資料</p>
+              <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">暫無資料</p>
             ) : (
               <ul className="divide-y divide-border">
                 {recent.data.map((r) => (
@@ -70,7 +70,7 @@ function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 bg-card/80 shadow-sm">
           <CardContent className="p-6">
             <div className="mb-4 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -81,11 +81,11 @@ function AdminDashboardPage() {
             ) : overdue.error ? (
               <ErrorState message={overdue.error} onRetry={overdue.refetch} />
             ) : !overdue.data || overdue.data.length === 0 ? (
-              <p className="text-sm text-muted-foreground">目前無逾期紀錄。</p>
+              <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">目前無逾期紀錄。</p>
             ) : (
               <ul className="space-y-2">
                 {overdue.data.map((r) => (
-                  <li key={r.id} className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                  <li key={r.id} className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
                     <p className="text-sm font-medium text-destructive">{r.bookTitle}</p>
                     <p className="text-xs text-destructive/80">
                       {r.studentName}（{r.studentId}）｜到期 {formatDate(r.dueDate)}

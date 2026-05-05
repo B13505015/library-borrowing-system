@@ -46,19 +46,19 @@ function AdminUsersPage() {
   return (
     <>
       <PageHeader title="使用者管理" description="管理使用者帳號狀態。" />
-      <Card className="mb-4">
+      <Card className="mb-4 border-0 bg-card/80 shadow-sm">
         <CardContent className="p-4">
           <SearchBar placeholder="搜尋學號或姓名..." defaultValue={keyword} onSearch={setKeyword} />
         </CardContent>
       </Card>
-      <Card>
+      <Card className="border-0 bg-card/80 shadow-sm">
         <CardContent className="p-0">
           {loading ? (
             <LoadingState />
           ) : error ? (
             <ErrorState message={error} onRetry={refetch} />
           ) : !data || data.length === 0 ? (
-            <EmptyState title="找不到符合的使用者" />
+            <div className="p-6"><EmptyState title="找不到符合的使用者" /></div>
           ) : (
             // renderAdminUserTable
             (<Table>

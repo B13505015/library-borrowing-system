@@ -50,6 +50,10 @@ function BorrowRecordsPage() {
     }
   };
 
+    const sortedRecords = [...(data ?? [])].sort((a, b) =>
+    String(b.borrowDate ?? "").localeCompare(String(a.borrowDate ?? "")),
+  );
+
   return (
     <>
       <PageHeader title="我的借閱紀錄" description="顯示您所有的借閱與歸還紀錄。" />
@@ -74,7 +78,7 @@ function BorrowRecordsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((r) => (
+                {sortedRecords.map((r) => (
                   <TableRow key={r.id} className={r.status === "OVERDUE" ? "bg-destructive/5" : ""}>
                     <TableCell className="font-medium">{r.bookTitle}</TableCell>
                     <TableCell>{formatDate(r.borrowDate)}</TableCell>
