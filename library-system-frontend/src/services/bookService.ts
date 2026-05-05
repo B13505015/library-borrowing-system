@@ -3,6 +3,19 @@ import type { Book, BookFormValues } from "@/types/book";
 import { http } from "./http";
 import type { BorrowRecord } from "@/types/borrowRecord";
 
+
+function normalizeBookStatus(status: string): Book["status"] {
+  const normalized = status.toUpperCase();
+  if (normalized === "AVAILABLE" || normalized === "BORROWED" || normalized === "REMOVED") {
+    return normalized;
+  }
+  return "BORROWED";
+}
+
+function normalizeBooks(books: Book[]): Book[] {
+  return books.map((book) => ({ ...book, status: normalizeBookStatus(String(book.status ?? "")) }));
+}
+
 export type PopularBook = {
   bookId: number;
   title: string;
@@ -20,7 +33,7 @@ export async function getAllBooks(): Promise<ApiResponse<Book[]>> {
       throw new ApiError(response.message || "查詢書籍失敗");
     }
 
-    return response;
+    return { ...response, data: normalizeBooks(response.data) };
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
@@ -46,7 +59,7 @@ export async function searchBooks(keyword = ""): Promise<ApiResponse<Book[]>> {
       throw new ApiError(response.message || "搜尋書籍失敗");
     }
 
-    return response;
+    return { ...response, data: normalizeBooks(response.data) };
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { BookOpen, ClipboardList, Home, LogOut } from "lucide-react";
+import { BookOpen, ClipboardList, Heart, Home, LogOut, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,8 @@ const NAV_ITEMS = [
   { to: "/user", label: "首頁", icon: Home, exact: true },
   { to: "/user/books", label: "查詢書籍", icon: BookOpen, exact: false },
   { to: "/user/records", label: "我的借閱紀錄", icon: ClipboardList, exact: false },
+  { to: "/user/favorites", label: "我的收藏", icon: Heart, exact: false },
+  { to: "/user/reviews", label: "書評專區", icon: MessageSquare, exact: false },
 ] as const;
 
 export function Navbar() {
