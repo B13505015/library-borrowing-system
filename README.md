@@ -5,7 +5,6 @@ Java + MySQL library borrowing system with user and admin functions
 ## Repository structure (current)
 - `library-api/library-api`: **primary backend** (Spring Boot API runtime).
 - `library-system-frontend`: frontend app.
-- `database/raw`: 初始 JSON 原始資料。
 - `Database`: 歷史 schema/seed/raw data artifacts.
 
 
@@ -36,3 +35,16 @@ source library-api/library-api/database/seed.sql;
 
 JSON importer 已整併到 API 模組：`library-api/library-api/src/main/java/com/yourteam/library/importer/`。
 對應 JSON 放在：`library-api/library-api/src/main/resources/importer/`。
+
+
+## 資料庫一鍵初始化
+
+已提供 `scripts/init_db.sh`：會依序執行 `schema.sql`、`seed.sql`，再自動跑 `DataImportRunner` 匯入 `src/main/resources/importer/*.json`。
+
+```bash
+DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASS=your_password ./scripts/init_db.sh
+```
+
+另外已將重複的 `database/`（小寫）資料夾移除，統一保留：
+- `library-api/library-api/database/`（schema/seed）
+- `Database/`（raw-data 與文件）

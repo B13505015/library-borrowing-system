@@ -244,6 +244,30 @@ public class UserRepository {
         return 3;
     }
 
+    public int countFavoritesByUserId(int userId) {
+        String sql = "SELECT COUNT(*) AS c FROM favorites WHERE user_id = ?";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getInt("c");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    public int countReviewsByUserId(int userId) {
+        String sql = "SELECT COUNT(*) AS c FROM reviews WHERE user_id = ?";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getInt("c");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
     public double findOverdueFinePerDayByRoleLevel(String roleLevel) {
         String sql = "SELECT overdue_fine_per_day FROM loan_policies WHERE role_level = ?";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {

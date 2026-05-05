@@ -10,11 +10,12 @@ import com.yourteam.library.config.DBConnection;
 
 public class FavoriteRepository {
     public boolean addFavorite(int userId, int bookId) {
-        String sql = "INSERT INTO favorites (user_id, book_id) VALUES (?, ?)";
+        String sql = "INSERT IGNORE INTO favorites (user_id, book_id) VALUES (?, ?)";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, userId);
             pstmt.setInt(2, bookId);
-            return pstmt.executeUpdate() > 0;
+            pstmt.executeUpdate();
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
         }
