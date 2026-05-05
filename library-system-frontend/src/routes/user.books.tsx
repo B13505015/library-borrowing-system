@@ -186,9 +186,9 @@ function SearchBooksPage() {
                       </Button>
 
                       <Button
-                        variant="default"
+                        variant={b.status === "BORROWED" ? "secondary" : "default"}
                         size="sm"
-                        className="ml-2"
+                        className={`ml-2 ${b.status === "BORROWED" ? "bg-amber-500 text-white hover:bg-amber-600" : ""}`}
                         disabled={b.status === "REMOVED" || borrowingId === b.id}
                         onClick={() => showBookDetail(b)}
                       >
