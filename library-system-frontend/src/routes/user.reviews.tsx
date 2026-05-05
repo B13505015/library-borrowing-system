@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
 import { addReview, getBookReviews } from "@/services/reviewService";
-import { getMyBorrowRecords, borrowBook } from "@/services/borrowService";
+import { getMyBorrowRecords } from "@/services/borrowService";
 import { searchBooks } from "@/services/bookService";
 import type { Book } from "@/types/book";
 import { toast } from "sonner";
@@ -58,11 +58,6 @@ function Page() {
     toast.success("書評已送出");
   };
 
-  const handleBorrow = async () => {
-    if (!selected || !user) return;
-    await borrowBook(user.userId, Number(selected.id), 7);
-    toast.success(`已借閱《${selected.title}》`);
-  };
 
   return <><PageHeader title="書評專區" description="選擇借閱過的書，查看與撰寫書評" />
     <Card className="mb-4"><CardContent className="space-y-3 p-4">
@@ -70,10 +65,14 @@ function Page() {
         value={selected?.id ?? ""}
         onChange={(e) => pickBook(e.target.value)}
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        disabled={borrowedBooks.length === 0}
       >
         <option value="">請選擇借閱過的書籍</option>
         {borrowedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
       </select>
+      {borrowedBooks.length === 0 && (
+        <p className="text-sm text-muted-foreground">目前沒有借閱過的書籍可評論，請先借書後再來發表書評。</p>
+      )}
       <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="查詢書籍評論（人名、書籍或評論關鍵字）" />
     </CardContent></Card>
 
@@ -82,8 +81,7 @@ function Page() {
       <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="評論內容" />
       <div className="flex gap-2">
         <Button onClick={submit} disabled={!selected || !comment.trim()}>送出書評</Button>
-        <Button variant="secondary" onClick={handleBorrow} disabled={!selected}>借閱這本書</Button>
-      </div>
+              </div>
       {filteredReviews.map((r, i) => <p key={i} className="text-sm">{r}</p>)}
     </CardContent></Card></>;
 }
