@@ -331,4 +331,16 @@ public class BorrowRecordRepository {
 
         return recordList;
     }
+    public int countActiveBorrowsByUserId(int userId) {
+        String sql = "SELECT COUNT(*) AS c FROM borrow_records WHERE user_id = ? AND return_date IS NULL";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getInt("c");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
 }

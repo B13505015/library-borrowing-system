@@ -1,6 +1,5 @@
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { BookCopy, BookOpen, ClipboardList, LayoutDashboard, LogOut, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { BookCopy, BookOpen, ClipboardList, LayoutDashboard, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -12,14 +11,9 @@ const NAV = [
 ] as const;
 
 export function Sidebar() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const handleLogout = async () => {
-    await logout();
-    navigate({ to: "/login" });
-  };
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -52,10 +46,6 @@ export function Sidebar() {
           <p className="font-medium">{user?.name ?? "管理員"}</p>
           <p className="text-xs text-sidebar-foreground/70">{user?.studentId}</p>
         </div>
-        <Button variant="outline" size="sm" className="w-full bg-transparent text-sidebar-foreground" onClick={handleLogout}>
-          <LogOut className="mr-1 h-4 w-4" />
-          登出
-        </Button>
       </div>
     </aside>
   );

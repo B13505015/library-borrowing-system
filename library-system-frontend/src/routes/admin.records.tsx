@@ -36,7 +36,7 @@ function AdminRecordsPage() {
   return (
     <>
       <PageHeader title="借閱紀錄管理" description="檢視並依學號或書名搜尋所有借閱紀錄。" />
-      <Card className="mb-4">
+      <Card className="mb-4 border-0 bg-card/80 shadow-sm">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <div className="flex-1">
             <SearchBar placeholder="搜尋學號、姓名或書名..." defaultValue={keyword} onSearch={setKeyword} />
@@ -54,14 +54,14 @@ function AdminRecordsPage() {
           </Select>
         </CardContent>
       </Card>
-      <Card>
+      <Card className="border-0 bg-card/80 shadow-sm">
         <CardContent className="p-0">
           {loading ? (
             <LoadingState />
           ) : error ? (
             <ErrorState message={error} onRetry={refetch} />
           ) : !data || data.length === 0 ? (
-            <EmptyState title="找不到符合的借閱紀錄" />
+            <div className="p-6"><EmptyState title="找不到符合的借閱紀錄" /></div>
           ) : (
             // renderAdminBorrowTable
             (<Table>

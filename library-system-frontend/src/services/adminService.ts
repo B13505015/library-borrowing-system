@@ -120,6 +120,27 @@ export interface BorrowSearchParams {
   status?: BorrowRecord["status"] | "ALL";
 }
 
+export interface AdminUserDetail {
+  studentId: string;
+  name: string;
+  level: string;
+  status: string;
+  favoriteCount: number;
+  reviewCount: number;
+  borrowRecords: Array<{ recordId: number; bookId: number; borrowDate: string; dueDate: string; returnDate: string | null }>;
+}
+
+export async function getUserDetail(studentId: string): Promise<ApiResponse<AdminUserDetail>> {
+  try {
+    const response = await http.get<AdminUserDetail>(`/admin/users/${studentId}/detail`);
+    if (!response.success || !response.data) throw new ApiError(response.message || "查詢使用者詳情失敗");
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("查詢使用者詳情失敗");
+  }
+}
+
 export async function searchBorrowRecords(
   params: BorrowSearchParams = {}
 ): Promise<ApiResponse<BorrowRecord[]>> {

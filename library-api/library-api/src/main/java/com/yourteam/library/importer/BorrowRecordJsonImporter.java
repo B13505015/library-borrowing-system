@@ -1,0 +1,57 @@
+package com.yourteam.library.importer;
+
+import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class BorrowRecordJsonImporter {
+
+    private static final String DB_URL = System.getenv().getOrDefault("LIB_DB_URL", "jdbc:mysql://localhost:3306/library_db");
+    private static final String DB_USER = System.getenv().getOrDefault("LIB_DB_USER", "root");
+    private static final String DB_PASSWORD = System.getenv().getOrDefault("LIB_DB_PASSWORD", "");
+
+    public void importBorrowRecordsJson() {
+        String sql = "INSERT INTO borrow_records (user_id, book_id, borrow_date, due_date, return_date, borrow_days, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("importer/Borrow_records.json");
+            if (inputStream == null) throw new RuntimeException("找不到 Borrow_records.json");
+
+            List<Map<String, Object>> recordList = objectMapper.readValue(inputStream, new TypeReference<List<Map<String, Object>>>() {});
+            int successCount = 0;
+
+            for (Map<String, Object> recordMap : recordList) {
+                stmt.setInt(1, ((Number) recordMap.get("user_id")).intValue());
+                stmt.setInt(2, ((Number) recordMap.get("book_id")).intValue());
+                stmt.setObject(3, parseDate(recordMap.get("borrow_date"), formatter));
+                stmt.setObject(4, parseDate(recordMap.get("due_date"), formatter));
+                stmt.setObject(5, parseDate(recordMap.get("return_date"), formatter));
+                stmt.setInt(6, ((Number) recordMap.get("borrow_days")).intValue());
+                stmt.setObject(7, parseDate(recordMap.get("created_at"), formatter));
+                stmt.executeUpdate();
+                successCount++;
+            }
+
+            System.out.println("Borrow_records.json 匯入完成，筆數: " + successCount);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private LocalDateTime parseDate(Object value, DateTimeFormatter formatter) {
+        if (value == null) return null;
+        return LocalDateTime.parse(value.toString(), formatter);
+    }
+}

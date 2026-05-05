@@ -8,6 +8,7 @@ import com.yourteam.library.entity.User;
 import com.yourteam.library.repository.BookRepository;
 import com.yourteam.library.repository.BorrowRecordRepository;
 import com.yourteam.library.repository.UserRepository;
+import com.yourteam.library.repository.ReservationRepository;
 
 public class BorrowService {
 
@@ -15,6 +16,7 @@ public class BorrowService {
     private UserRepository userRepository;
     private BookRepository bookRepository;
     private BorrowRecordRepository borrowRecordRepository;
+    private ReservationRepository reservationRepository;
     
     private boolean isAllowedBorrowDays(String roleLevel, int borrowDays) {
         if ("VIP".equalsIgnoreCase(roleLevel)) {
@@ -30,6 +32,7 @@ public class BorrowService {
         this.userRepository = new UserRepository();
         this.bookRepository = new BookRepository();
         this.borrowRecordRepository = new BorrowRecordRepository();
+        this.reservationRepository = new ReservationRepository();
     }
 
     // 借書功能
@@ -39,6 +42,8 @@ public class BorrowService {
     // "BOOK_NOT_FOUND"        -> 找不到書籍
     // "BOOK_NOT_AVAILABLE"    -> 書籍目前不可借
     // "BORROW_SUCCESS"        -> 借書成功
+    // "BORROW_LIMIT_REACHED"  -> 已達同時可借上限
+    // "BOOK_RESERVED"        -> 書籍被借走，已建立預約
     // "BORROW_FAILED"         -> 借閱紀錄新增失敗或狀態更新失敗
     public String borrowBook(int userId, int bookId, int borrowDays) {
 
@@ -53,6 +58,12 @@ public class BorrowService {
             return "USER_SUSPENDED";
         }
         
+        int maxActiveLoans = userRepository.findMaxActiveLoansByRoleLevel(user.getRoleLevel());
+        int activeBorrows = borrowRecordRepository.countActiveBorrowsByUserId(userId);
+        if (activeBorrows >= maxActiveLoans) {
+            return "BORROW_LIMIT_REACHED";
+        }
+
         // 檢查借閱天數是否符合使用者等級
         if (!isAllowedBorrowDays(user.getRoleLevel(), borrowDays)) {
             return "BORROW_DAYS_NOT_ALLOWED";
@@ -66,7 +77,9 @@ public class BorrowService {
 
         // 檢查書籍是否可借
         if (!"AVAILABLE".equalsIgnoreCase(book.getStatus())) {
-            return "BOOK_NOT_AVAILABLE";
+            int priority = "VIP".equalsIgnoreCase(user.getRoleLevel()) ? 10 : 1;
+            boolean reserved = reservationRepository.createReservation(userId, bookId, priority);
+            return reserved ? "BOOK_RESERVED" : "BOOK_NOT_AVAILABLE";
         }
 
         // 建立借書時間與到期時間

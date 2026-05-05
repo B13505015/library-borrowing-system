@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Ban, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -14,7 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { useAsync } from "@/hooks/useAsync";
-import { searchUsers, handleSuspendUser, handleActivateUser } from "@/services/adminService";
+import { searchUsers, handleSuspendUser, handleActivateUser, getUserDetail, type AdminUserDetail } from "@/services/adminService";
 
 export const Route = createFileRoute("/admin/users")({
   head: () => ({ meta: [{ title: "使用者管理 — 圖書館借還書系統" }] }),
@@ -28,6 +29,17 @@ function AdminUsersPage() {
     [keyword],
   );
   const [actingId, setActingId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<AdminUserDetail | null>(null);
+
+
+  const onViewDetail = async (studentId: string) => {
+    try {
+      const res = await getUserDetail(studentId);
+      setDetail(res.data);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "查詢詳情失敗");
+    }
+  };
 
   const onToggle = async (studentId: string, suspend: boolean) => {
     setActingId(studentId);
@@ -46,19 +58,19 @@ function AdminUsersPage() {
   return (
     <>
       <PageHeader title="使用者管理" description="管理使用者帳號狀態。" />
-      <Card className="mb-4">
+      <Card className="mb-4 border-0 bg-card/80 shadow-sm">
         <CardContent className="p-4">
           <SearchBar placeholder="搜尋學號或姓名..." defaultValue={keyword} onSearch={setKeyword} />
         </CardContent>
       </Card>
-      <Card>
+      <Card className="border-0 bg-card/80 shadow-sm">
         <CardContent className="p-0">
           {loading ? (
             <LoadingState />
           ) : error ? (
             <ErrorState message={error} onRetry={refetch} />
           ) : !data || data.length === 0 ? (
-            <EmptyState title="找不到符合的使用者" />
+            <div className="p-6"><EmptyState title="找不到符合的使用者" /></div>
           ) : (
             // renderAdminUserTable
             (<Table>
@@ -68,7 +80,7 @@ function AdminUsersPage() {
                   <TableHead>姓名</TableHead>
                   <TableHead className="w-[120px]">等級</TableHead>
                   <TableHead className="w-[100px]">狀態</TableHead>
-                  <TableHead className="w-[140px] text-right">操作</TableHead>
+                  <TableHead className="w-[220px] text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -99,6 +111,7 @@ function AdminUsersPage() {
                           復權
                         </Button>
                       )}
+                      <Button variant="ghost" size="sm" className="ml-1" onClick={() => onViewDetail(u.studentId)}>詳情</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -107,6 +120,17 @@ function AdminUsersPage() {
           )}
         </CardContent>
       </Card>
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>使用者詳情 {detail?.studentId}</DialogTitle></DialogHeader>
+          {detail && <div className="space-y-2 text-sm">
+            <p>姓名：{detail.name}</p><p>等級：{detail.level}</p><p>狀態：{detail.status}</p>
+            <p>收藏數：{detail.favoriteCount}｜書評數：{detail.reviewCount}</p>
+            <p className="font-medium">借閱紀錄（{detail.borrowRecords.length}）</p>
+            <div className="max-h-48 overflow-auto rounded border p-2">{detail.borrowRecords.map((r) => <p key={r.recordId}>#{r.recordId} 書籍{r.bookId} 借:{String(r.borrowDate).slice(0,10)} 到期:{String(r.dueDate).slice(0,10)}</p>)}</div>
+          </div>}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
