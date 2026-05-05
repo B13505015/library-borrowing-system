@@ -1,152 +1,80 @@
 package com.yourteam.library.importer;
 
 import java.io.InputStream;
-import java.time.LocalDateTime;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yourteam.library.entity.Book;
-import com.yourteam.library.repository.BookAuthorRepository;
-import com.yourteam.library.repository.BookIsbnRepository;
-import com.yourteam.library.repository.BookRepository;
-import com.yourteam.library.repository.BookSubjectRepository;
 
 public class BookJsonImporter {
+    private static final String DB_URL = System.getenv().getOrDefault("LIB_DB_URL", "jdbc:mysql://localhost:3306/library_db");
+    private static final String DB_USER = System.getenv().getOrDefault("LIB_DB_USER", "root");
+    private static final String DB_PASSWORD = System.getenv().getOrDefault("LIB_DB_PASSWORD", "");
 
-    // 建立 repository 物件，負責把資料寫進資料庫
-    private BookRepository bookRepository;
-    private BookAuthorRepository bookAuthorRepository;
-    private BookSubjectRepository bookSubjectRepository;
-    private BookIsbnRepository bookIsbnRepository;
-
-    // 建構子（constructor）
-    public BookJsonImporter() {
-        this.bookRepository = new BookRepository();
-        this.bookAuthorRepository = new BookAuthorRepository();
-        this.bookSubjectRepository = new BookSubjectRepository();
-        this.bookIsbnRepository = new BookIsbnRepository();
-    }
-
-    // 匯入 Books.json 到 books / book_authors / book_subjects / book_isbns
     public void importBooksJson() {
-        try {
-            // 建立 Jackson 的 ObjectMapper，用來解析 JSON
+        String bookSql = "INSERT INTO books (title, authors, subjects, publisher, publish_year, edition, format_desc, source, note, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String isbnSql = "INSERT INTO book_isbns (book_id, isbn) VALUES (?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+             PreparedStatement bookStmt = conn.prepareStatement(bookSql, PreparedStatement.RETURN_GENERATED_KEYS);
+             PreparedStatement isbnStmt = conn.prepareStatement(isbnSql)) {
+
             ObjectMapper objectMapper = new ObjectMapper();
-
-            // 從 resources 資料夾讀取 Books.json
             InputStream inputStream = getClass().getClassLoader().getResourceAsStream("Books.json");
+            if (inputStream == null) throw new RuntimeException("找不到 Books.json");
 
-            // 如果找不到檔案，直接丟出例外
-            if (inputStream == null) {
-                throw new RuntimeException("找不到 Books.json，請確認檔案是否放在 src/main/resources");
-            }
-
-            // 將 JSON 解析成 List<Map<String, Object>>
-            List<Map<String, Object>> bookList = objectMapper.readValue(
-                inputStream,
-                new TypeReference<List<Map<String, Object>>>() {}
-            );
-
-            // 計數器：統計成功匯入幾本書
+            List<Map<String, Object>> bookList = objectMapper.readValue(inputStream, new TypeReference<List<Map<String, Object>>>() {});
             int successCount = 0;
 
-            // 一筆一筆處理 JSON 資料
             for (Map<String, Object> bookMap : bookList) {
-                // 建立 Book 物件
-                Book book = new Book();
+                bookStmt.setString(1, (String) bookMap.get("題名"));
+                bookStmt.setString(2, joinArray(bookMap.get("作者")));
+                bookStmt.setString(3, joinArray(bookMap.get("主題")));
+                bookStmt.setString(4, (String) bookMap.get("出版者"));
+                bookStmt.setString(5, objectToString(bookMap.get("出版年")));
+                bookStmt.setString(6, (String) bookMap.get("版本"));
+                bookStmt.setString(7, (String) bookMap.get("格式"));
+                bookStmt.setString(8, (String) bookMap.get("資料來源"));
+                bookStmt.setString(9, (String) bookMap.get("附註"));
+                bookStmt.setString(10, "AVAILABLE");
+                bookStmt.executeUpdate();
 
-                // 讀取主表欄位
-                book.setTitle((String) bookMap.get("題名"));
-                book.setPublisher((String) bookMap.get("出版者"));
-                book.setEdition((String) bookMap.get("版本"));
-                book.setFormat((String) bookMap.get("格式"));
-                book.setSource((String) bookMap.get("資料來源"));
-                book.setNote((String) bookMap.get("附註"));
-
-                // 新匯入的書預設為 AVAILABLE
-                book.setStatus("AVAILABLE");
-
-                // 出版年可能會被解析成 Integer，也可能是其他 Number 類型
-                Object publishYearObj = bookMap.get("出版年");
-                if (publishYearObj instanceof Number) {
-                    book.setPublishYear(((Number) publishYearObj).intValue());
-                } else {
-                    // 如果不是數字，先給 0，避免程式壞掉
-                    book.setPublishYear(0);
+                int bookId = -1;
+                try (var keys = bookStmt.getGeneratedKeys()) {
+                    if (keys.next()) bookId = keys.getInt(1);
                 }
+                if (bookId == -1) continue;
 
-                // 建立時間先用現在時間
-                LocalDateTime now = LocalDateTime.now();
-
-                // 先把主表資料寫進 books，並取得新產生的 book_id
-                int bookId = bookRepository.insertBook(book, now);
-
-                // 如果主表新增失敗，就跳過這筆
-                if (bookId == -1) {
-                    continue;
-                }
-
-                // =========================
-                // 匯入作者（作者是陣列）
-                // =========================
-                Object authorsObj = bookMap.get("作者");
-                if (authorsObj instanceof List<?>) {
-                    List<?> authors = (List<?>) authorsObj;
-
-                    for (int i = 0; i < authors.size(); i++) {
-                        Object authorObj = authors.get(i);
-
-                        if (authorObj != null) {
-                            String authorName = authorObj.toString();
-                            // 作者順序從 1 開始
-                            bookAuthorRepository.insertAuthor(bookId, authorName, i + 1);
-                        }
-                    }
-                }
-
-                // =========================
-                // 匯入主題（主題是陣列）
-                // =========================
-                Object subjectsObj = bookMap.get("主題");
-                if (subjectsObj instanceof List<?>) {
-                    List<?> subjects = (List<?>) subjectsObj;
-
-                    for (Object subjectObj : subjects) {
-                        if (subjectObj != null) {
-                            String subjectName = subjectObj.toString();
-                            bookSubjectRepository.insertSubject(bookId, subjectName);
-                        }
-                    }
-                }
-
-                // =========================
-                // 匯入 ISBN / 識別號（也是陣列）
-                // =========================
                 Object isbnsObj = bookMap.get("識別號");
                 if (isbnsObj instanceof List<?>) {
-                    List<?> isbns = (List<?>) isbnsObj;
-
-                    for (Object isbnObj : isbns) {
+                    for (Object isbnObj : (List<?>) isbnsObj) {
                         if (isbnObj != null) {
-                            String isbn = isbnObj.toString();
-                            bookIsbnRepository.insertIsbn(bookId, isbn);
+                            isbnStmt.setInt(1, bookId);
+                            isbnStmt.setString(2, isbnObj.toString());
+                            isbnStmt.executeUpdate();
                         }
                     }
                 }
-
-                // 成功處理一整本書
                 successCount++;
             }
 
-            // 印出匯入結果
-            System.out.println("Books.json 匯入完成");
-            System.out.println("成功匯入書籍筆數: " + successCount);
-
+            System.out.println("Books.json 匯入完成，筆數: " + successCount);
         } catch (Exception e) {
-            // 發生錯誤時印出錯誤訊息
             e.printStackTrace();
         }
+    }
+
+    private String joinArray(Object value) {
+        if (!(value instanceof List<?> list)) return null;
+        return list.stream().map(Object::toString).collect(Collectors.joining(", "));
+    }
+
+    private String objectToString(Object value) {
+        return value == null ? null : value.toString();
     }
 }
