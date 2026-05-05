@@ -55,8 +55,8 @@ function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-accent/30 p-6">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardContent className="p-8">
+      <Card className="w-full max-w-md border-0 bg-card/90 shadow-xl backdrop-blur">
+        <CardContent className="p-8 sm:p-9">
           <div className="mb-6 flex flex-col items-center text-center">
             <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <BookOpen className="h-7 w-7" />
@@ -68,24 +68,11 @@ function LoginPage() {
           <form className="space-y-4" onSubmit={(e) => submit("user", e)}>
             <div className="space-y-1.5">
               <Label htmlFor="studentId">學號</Label>
-              <Input
-                id="studentId"
-                placeholder="例如 S10901001"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                autoComplete="username"
-              />
+              <Input id="studentId" placeholder="例如 S10901001" value={studentId} onChange={(e) => setStudentId(e.target.value)} autoComplete="username" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">密碼</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="請輸入密碼"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
+              <Input id="password" type="password" placeholder="請輸入密碼" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
             </div>
 
             {error && (
@@ -94,17 +81,12 @@ function LoginPage() {
               </Alert>
             )}
 
-            <div className="grid grid-cols-2 gap-2 pt-2">
+            <div className="grid grid-cols-2 gap-3 pt-3">
               <Button type="submit" disabled={loading !== null}>
                 {loading === "user" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 使用者登入
               </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={loading !== null}
-                onClick={(e) => submit("admin", e)}
-              >
+              <Button type="button" variant="outline" disabled={loading !== null} onClick={(e) => submit("admin", e)}>
                 {loading === "admin" && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                 管理員登入
               </Button>
@@ -113,9 +95,7 @@ function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             還沒有帳號？
-            <Link to="/register" className="ml-1 font-medium text-primary hover:underline">
-              前往註冊
-            </Link>
+            <Link to="/register" className="ml-1 font-semibold text-primary hover:underline">前往註冊</Link>
           </p>
         </CardContent>
       </Card>

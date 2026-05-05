@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
-import { Eye, BookPlus, Loader2 } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Eye, BookPlus, Loader2, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SearchBar } from "@/components/common/SearchBar";
@@ -29,6 +29,7 @@ import {
 import { useAsync } from "@/hooks/useAsync";
 import { searchBooks, getBookBorrowHistory } from "@/services/bookService";
 import { borrowBook } from "@/services/borrowService";
+import { addFavorite, getMyFavoriteBookIds, removeFavorite } from "@/services/favoriteService";
 import { useAuth } from "@/context/AuthContext";
 import type { Book } from "@/types/book";
 import type { BorrowRecord } from "@/types/borrowRecord";
@@ -47,6 +48,7 @@ function SearchBooksPage() {
   const [borrowDays, setBorrowDays] = useState<1 | 3 | 7 | 14>(7);
   const [history, setHistory] = useState<BorrowRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
 
   const { data, loading, error, refetch } = useAsync(
     () => searchBooks(keyword).then((r) => r.data),
@@ -54,6 +56,17 @@ function SearchBooksPage() {
   );
 
   const availableBorrowDays = user?.level === "VIP" ? [1, 3, 7, 14] : [1, 3, 7];
+
+  useEffect(() => {
+    const loadFavorites = async () => {
+      if (!user) return;
+      try {
+        const res = await getMyFavoriteBookIds(user.userId);
+        setFavoriteIds(new Set(res.data));
+      } catch {}
+    };
+    loadFavorites();
+  }, [user]);
 
   const handleBorrow = async (book: Book) => {
     if (!user) return;
@@ -70,6 +83,30 @@ function SearchBooksPage() {
       toast.error(e instanceof Error ? e.message : "借閱失敗");
     } finally {
       setBorrowingId(null);
+    }
+  };
+
+
+
+  const toggleFavorite = async (book: Book) => {
+    if (!user) return;
+    const bookId = Number(book.id);
+    try {
+      if (favoriteIds.has(bookId)) {
+        await removeFavorite(user.userId, bookId);
+        const next = new Set(favoriteIds);
+        next.delete(bookId);
+        setFavoriteIds(next);
+        toast.success("已移除收藏");
+      } else {
+        await addFavorite(user.userId, bookId);
+        const next = new Set(favoriteIds);
+        next.add(bookId);
+        setFavoriteIds(next);
+        toast.success("已加入收藏");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "收藏操作失敗");
     }
   };
 
@@ -137,6 +174,11 @@ function SearchBooksPage() {
                       <Button variant="ghost" size="sm" onClick={() => showBookDetail(b)}>
                         <Eye className="mr-1 h-4 w-4" />
                         詳情
+                      </Button>
+
+                      <Button variant="ghost" size="sm" className="ml-2" onClick={() => toggleFavorite(b)}>
+                        <Heart className={`mr-1 h-4 w-4 ${favoriteIds.has(Number(b.id)) ? "fill-current text-rose-500" : ""}`} />
+                        收藏
                       </Button>
 
                       <Button

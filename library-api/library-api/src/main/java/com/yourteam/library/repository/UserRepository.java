@@ -232,4 +232,28 @@ public class UserRepository {
 
         return userList;
     }
+    public int findMaxActiveLoansByRoleLevel(String roleLevel) {
+        String sql = "SELECT max_active_loans FROM loan_policies WHERE role_level = ?";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, roleLevel == null ? "NORMAL" : roleLevel.toUpperCase());
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getInt("max_active_loans");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 3;
+    }
+
+    public double findOverdueFinePerDayByRoleLevel(String roleLevel) {
+        String sql = "SELECT overdue_fine_per_day FROM loan_policies WHERE role_level = ?";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, roleLevel == null ? "NORMAL" : roleLevel.toUpperCase());
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getDouble("overdue_fine_per_day");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0.0;
+    }
+
 }
