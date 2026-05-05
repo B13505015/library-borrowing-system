@@ -5,6 +5,7 @@ import com.yourteam.library.util.RelativeDateParser;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -20,11 +21,17 @@ public class BorrowRecordJsonImporter {
     private static final String DB_PASSWORD = System.getenv().getOrDefault("LIB_DB_PASSWORD", "0000");
 
     public void importBorrowRecordsJson() {
-        String sql = "INSERT INTO borrow_records (user_id, book_id, borrow_date, due_date, return_date, borrow_days, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String insertSql = "INSERT INTO borrow_records (user_id, book_id, borrow_date, due_date, return_date, borrow_days, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String resetBookStatusSql = "UPDATE books SET status = 'AVAILABLE'";
+        String markBorrowedBookStatusSql = "UPDATE books SET status = 'BORROWED' WHERE book_id = ?";
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                Statement resetBookStatusStmt = conn.createStatement();
+                PreparedStatement stmt = conn.prepareStatement(insertSql);
+                PreparedStatement borrowedBookStmt = conn.prepareStatement(markBorrowedBookStatusSql)) {
+
+               resetBookStatusStmt.executeUpdate(resetBookStatusSql);
 
             ObjectMapper objectMapper = new ObjectMapper();
             InputStream inputStream = getClass().getClassLoader().getResourceAsStream("Borrow_records.json");
@@ -42,6 +49,12 @@ public class BorrowRecordJsonImporter {
                 stmt.setInt(6, ((Number) recordMap.get("borrow_days")).intValue());
                 stmt.setObject(7, parseDate(recordMap.get("created_at"), formatter));
                 stmt.executeUpdate();
+                
+                if (parseDate(recordMap.get("return_date"), formatter) == null) {
+                    borrowedBookStmt.setInt(1, ((Number) recordMap.get("book_id")).intValue());
+                    borrowedBookStmt.executeUpdate();
+                }             
+                
                 successCount++;
             }
 
