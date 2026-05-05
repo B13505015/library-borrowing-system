@@ -1,16 +1,20 @@
 package library_api.dto;
 
-// 前端送來的管理員登入資料
 public class AdminLoginRequest {
-
     private String username;
+    private String studentId;
     private String password;
 
-    public AdminLoginRequest() {
+    public String getUsername() {
+        return username != null && !username.isBlank() ? username : studentId;
     }
 
-    public String getUsername() {
-        return username;
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getStudentId() {
+        return studentId != null && !studentId.isBlank() ? studentId : username;
     }
 
     public void setUsername(String username) {

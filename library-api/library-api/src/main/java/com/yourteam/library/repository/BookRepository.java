@@ -41,7 +41,7 @@ public class BookRepository {
                 book.setPublisher(rs.getString("publisher"));
                 book.setPublishYear(rs.getInt("publish_year"));
                 book.setEdition(rs.getString("edition"));
-                book.setFormat(rs.getString("format"));
+                book.setFormat(rs.getString("format_desc"));
                 book.setSource(rs.getString("source"));
                 book.setNote(rs.getString("note"));
                 book.setStatus(rs.getString("status"));
@@ -87,7 +87,7 @@ public class BookRepository {
                 book.setPublisher(rs.getString("publisher"));
                 book.setPublishYear(rs.getInt("publish_year"));
                 book.setEdition(rs.getString("edition"));
-                book.setFormat(rs.getString("format"));
+                book.setFormat(rs.getString("format_desc"));
                 book.setSource(rs.getString("source"));
                 book.setNote(rs.getString("note"));
                 book.setStatus(rs.getString("status"));
@@ -142,7 +142,7 @@ public class BookRepository {
     public int insertBook(Book book, java.time.LocalDateTime createdAt) {
 
         // SQL：新增 books 資料
-        String sql = "INSERT INTO books (title, publisher, publish_year, edition, format, source, note, status, created_at) "
+        String sql = "INSERT INTO books (title, publisher, publish_year, edition, format_desc, source, note, status, created_at) "
                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (
@@ -197,7 +197,7 @@ public class BookRepository {
                 + "title LIKE ? "
                 + "OR publisher LIKE ? "
                 + "OR edition LIKE ? "
-                + "OR format LIKE ? "
+                + "OR format_desc LIKE ? "
                 + "OR source LIKE ? "
                 + "OR note LIKE ?)";
 
@@ -231,7 +231,7 @@ public class BookRepository {
                 book.setPublisher(rs.getString("publisher"));
                 book.setPublishYear(rs.getInt("publish_year"));
                 book.setEdition(rs.getString("edition"));
-                book.setFormat(rs.getString("format"));
+                book.setFormat(rs.getString("format_desc"));
                 book.setSource(rs.getString("source"));
                 book.setNote(rs.getString("note"));
                 book.setStatus(rs.getString("status"));
@@ -252,7 +252,7 @@ public class BookRepository {
  // 根據 bookId 更新書籍資料
     public boolean updateBook(Book book) {
 
-        String sql = "UPDATE books SET title = ?, publisher = ?, publish_year = ?, edition = ?, format = ?, source = ?, note = ? "
+        String sql = "UPDATE books SET title = ?, publisher = ?, publish_year = ?, edition = ?, format_desc = ?, source = ?, note = ? "
                    + "WHERE book_id = ?";
 
         try (
