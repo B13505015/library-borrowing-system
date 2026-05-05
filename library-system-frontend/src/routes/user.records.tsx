@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -20,6 +20,7 @@ import {
 import { useAsync } from "@/hooks/useAsync";
 import { useAuth } from "@/context/AuthContext";
 import { getMyBorrowRecords, handleReturnBook } from "@/services/borrowService";
+import { getLoanPolicy } from "@/services/policyService";
 import { formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/user/records")({
@@ -37,11 +38,29 @@ function BorrowRecordsPage() {
     [user?.studentId],
   );
 
+
+  const { data: policyData } = useAsync(
+    () => getLoanPolicy(user?.level ?? "NORMAL").then((r) => r.data),
+    [user?.level],
+  );
+
+  const finePerDay = useMemo(() => Number(policyData?.overdueFinePerDay ?? 0), [policyData]);
+  const fineGraceDays = useMemo(() => Number(policyData?.fineGraceDays ?? 0), [policyData]);
+
+  const estimateFine = (dueDate: string) => {
+    const due = new Date(dueDate).getTime();
+    if (!due || Number.isNaN(due)) return 0;
+    const now = Date.now();
+    const overdueDays = Math.floor((now - due) / (1000 * 60 * 60 * 24));
+    if (overdueDays <= fineGraceDays) return 0;
+    return (overdueDays - fineGraceDays) * finePerDay;
+  };
+
   const onReturn = async (id: string) => {
     setReturningId(id);
     try {
-      await handleReturnBook(id);
-      toast.success("歸還成功");
+      const res = await handleReturnBook(id);
+      toast.success(res.message || "歸還成功");
       refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "歸還失敗");
@@ -74,6 +93,7 @@ function BorrowRecordsPage() {
                   <TableHead className="w-[120px]">到期日期</TableHead>
                   <TableHead className="w-[120px]">還書日期</TableHead>
                   <TableHead className="w-[100px]">狀態</TableHead>
+                  <TableHead className="w-[120px]">逾期罰款</TableHead>
                   <TableHead className="w-[120px] text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
@@ -87,6 +107,7 @@ function BorrowRecordsPage() {
                     </TableCell>
                     <TableCell>{formatDate(r.returnDate)}</TableCell>
                     <TableCell><StatusBadge status={r.status} /></TableCell>
+                    <TableCell>{r.status === "OVERDUE" ? `NT$${estimateFine(r.dueDate).toFixed(2)}` : "—"}</TableCell>
                     <TableCell className="text-right">
                       {r.status !== "RETURNED" ? (
                         <Button
