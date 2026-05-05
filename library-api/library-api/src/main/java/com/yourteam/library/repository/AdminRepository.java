@@ -36,8 +36,8 @@ public class AdminRepository {
                 admin.setAdminId(rs.getInt("admin_id"));
                 admin.setUsername(rs.getString("username"));
                 admin.setPassword(rs.getString("password"));
-                admin.setName(rs.getString("name"));
-                admin.setStatus(rs.getString("status"));
+                admin.setName(rs.getString("username"));
+                admin.setStatus("ACTIVE");
 
                 return admin;
             }

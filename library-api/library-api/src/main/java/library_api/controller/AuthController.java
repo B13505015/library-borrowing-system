@@ -108,10 +108,10 @@ public class AuthController {
     @PostMapping("/admin-login")
     public ApiResponse<AuthSessionResponse> adminLogin(@RequestBody AdminLoginRequest request) {
 
-        System.out.println("admin username: " + request.getStudentId());
+        System.out.println("admin username: " + request.getUsername());
         System.out.println("admin password: " + request.getPassword());
 
-        String loginResult = authService.loginAdmin(request.getStudentId(), request.getPassword());
+        String loginResult = authService.loginAdmin(request.getUsername(), request.getPassword());
 
         if (!"LOGIN_SUCCESS".equals(loginResult)) {
             String message;
@@ -134,7 +134,7 @@ public class AuthController {
             return new ApiResponse<>(false, null, message);
         }
 
-        Admin admin = adminRepository.findByUsername(request.getStudentId());
+        Admin admin = adminRepository.findByUsername(request.getUsername());
 
         if (admin == null) {
             return new ApiResponse<>(false, null, "登入成功但查無管理員資料");

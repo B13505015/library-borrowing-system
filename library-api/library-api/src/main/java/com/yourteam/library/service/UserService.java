@@ -39,4 +39,9 @@ public class UserService {
         }
         return userRepository.updateUserStatus(user.getUserId(), "ACTIVE");
     }
+
+    public User findByStudentNo(String studentNo) {
+        return userRepository.findByStudentNo(studentNo);
+    }
+
 }

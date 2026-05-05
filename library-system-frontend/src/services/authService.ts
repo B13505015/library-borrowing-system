@@ -37,7 +37,7 @@ export async function handleUserLogin(req: LoginRequest): Promise<ApiResponse<Au
 export async function handleAdminLogin(req: LoginRequest): Promise<ApiResponse<AuthSession>> {
   try {
     const response = await http.post<AuthSession>("/auth/admin-login", {
-      studentId: req.studentId,
+      username: req.studentId,
       password: req.password,
     });
 
