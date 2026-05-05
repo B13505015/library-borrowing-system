@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Star } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,9 @@ function Page() {
     }
     setBorrowedBooks(result);
   };
+  useEffect(() => {
+    loadBorrowedBooks();
+  }, [user?.userId]);
 
   const pickBook = async (id: string) => {
     const book = borrowedBooks.find((b) => b.id === id) ?? null;
@@ -63,7 +66,6 @@ function Page() {
 
   return <><PageHeader title="書評專區" description="選擇借閱過的書，查看與撰寫書評" />
     <Card className="mb-4"><CardContent className="space-y-3 p-4">
-      <Button variant="outline" onClick={loadBorrowedBooks}>載入我借閱過的書</Button>
       <select
         value={selected?.id ?? ""}
         onChange={(e) => pickBook(e.target.value)}
@@ -75,7 +77,7 @@ function Page() {
       <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="查詢書籍評論（人名、書籍或評論關鍵字）" />
     </CardContent></Card>
 
-    <Card><CardContent className="space-y-3 p-4"><p className="text-sm">目前選擇：{selected?.title ?? "尚未選擇書籍"}</p>
+    <Card><CardContent className="space-y-3 p-4">
       <div className="flex gap-1">{[1,2,3,4,5].map((n)=><button key={n} onClick={()=>setRating(n)}><Star className={`h-6 w-6 ${n<=rating?"fill-yellow-400 text-yellow-400":"text-muted-foreground"}`} /></button>)}</div>
       <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="評論內容" />
       <div className="flex gap-2">
