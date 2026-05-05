@@ -5,7 +5,9 @@ Java + MySQL library borrowing system with user and admin functions
 ## Repository structure (current)
 - `library-api/library-api`: **primary backend** (Spring Boot API runtime).
 - `library-system-frontend`: frontend app.
-- `Database`: schema, seed, and raw data artifacts.
+- `library-tools/data-import-test`: 匯入與手動測試工具（由舊 backend 抽出並重新命名）。
+- `database/raw`: 初始 JSON 原始資料。
+- `Database`: 歷史 schema/seed/raw data artifacts.
 
 
 ## Database Setup

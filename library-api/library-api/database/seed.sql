@@ -1,16 +1,16 @@
 USE library_db;
 
-INSERT INTO admins (account, password)
+INSERT INTO admins (username, password)
 VALUES ('admin', 'admin123')
-ON DUPLICATE KEY UPDATE account = VALUES(account);
+ON DUPLICATE KEY UPDATE username = VALUES(username);
 
-INSERT INTO users (user_name, user_email, phone, grade, class_name)
+INSERT INTO users (student_no, name, password, role_level, status)
 VALUES
-('王小明', 'ming@example.com', '0911111111', '一年級', 'A班'),
-('陳小華', 'hua@example.com', '0922222222', '二年級', 'B班')
-ON DUPLICATE KEY UPDATE user_name = VALUES(user_name);
+('S0001', '王小明', 'pass123', 'NORMAL', 'ACTIVE'),
+('S0002', '陳小華', 'pass456', 'VIP', 'ACTIVE')
+ON DUPLICATE KEY UPDATE name = VALUES(name);
 
-INSERT INTO books (title, publisher, publish_year, status)
+INSERT INTO books (title, authors, subjects, publisher, publish_year, edition, format_desc, source, note, status)
 VALUES
-('Java 程式設計', 'Tech Press', 2022, 'AVAILABLE'),
-('資料庫系統', 'Data Press', 2021, 'AVAILABLE');
+('Java 程式設計', '作者A', '程式設計', 'Tech Press', '2022', '1st', '平裝', 'seed', '', 'AVAILABLE'),
+('資料庫系統', '作者B', '資料庫', 'Data Press', '2021', '2nd', '平裝', 'seed', '', 'BORROWED');
