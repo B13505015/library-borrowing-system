@@ -1,6 +1,7 @@
 package com.yourteam.library.importer;
 
 import java.io.InputStream;
+import com.yourteam.library.util.RelativeDateParser;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -14,9 +15,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class BorrowRecordJsonImporter {
 
-    private static final String DB_URL = System.getenv().getOrDefault("LIB_DB_URL", "jdbc:mysql://localhost:3306/library_db");
+    private static final String DB_URL = System.getenv().getOrDefault("LIB_DB_URL", "jdbc:mysql://localhost:3306/library_system");
     private static final String DB_USER = System.getenv().getOrDefault("LIB_DB_USER", "root");
-    private static final String DB_PASSWORD = System.getenv().getOrDefault("LIB_DB_PASSWORD", "");
+    private static final String DB_PASSWORD = System.getenv().getOrDefault("LIB_DB_PASSWORD", "0000");
 
     public void importBorrowRecordsJson() {
         String sql = "INSERT INTO borrow_records (user_id, book_id, borrow_date, due_date, return_date, borrow_days, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -26,7 +27,7 @@ public class BorrowRecordJsonImporter {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             ObjectMapper objectMapper = new ObjectMapper();
-            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("importer/Borrow_records.json");
+            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("Borrow_records.json");
             if (inputStream == null) throw new RuntimeException("找不到 Borrow_records.json");
 
             List<Map<String, Object>> recordList = objectMapper.readValue(inputStream, new TypeReference<List<Map<String, Object>>>() {});
@@ -51,7 +52,23 @@ public class BorrowRecordJsonImporter {
     }
 
     private LocalDateTime parseDate(Object value, DateTimeFormatter formatter) {
-        if (value == null) return null;
-        return LocalDateTime.parse(value.toString(), formatter);
+        if (value == null) {
+            return null;
+        }
+
+        String text = value.toString().trim();
+
+        // 處理空字串或 "null"
+        if (text.isEmpty() || text.equalsIgnoreCase("null")) {
+            return null;
+        }
+
+        // 處理像 "-45 days"、"7 days"、"+10 days" 這種相對日期
+        if (text.toLowerCase().matches("[-+]?\\d+\\s+days?")) {
+            return RelativeDateParser.parseRelativeDate(text);
+        }
+
+        // 處理一般日期格式，例如 "2026-05-05 12:30:00"
+        return LocalDateTime.parse(text, formatter);
     }
 }

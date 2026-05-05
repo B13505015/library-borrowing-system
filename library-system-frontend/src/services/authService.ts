@@ -36,10 +36,14 @@ export async function handleUserLogin(req: LoginRequest): Promise<ApiResponse<Au
 // 管理員登入：改成真的呼叫後端 API
 export async function handleAdminLogin(req: LoginRequest): Promise<ApiResponse<AuthSession>> {
   try {
-    const response = await http.post<AuthSession>("/auth/admin-login", {
-      studentId: req.studentId,
+    const body = {
+      username: req.studentId,
       password: req.password,
-    });
+    };
+
+    console.log("admin login body:", body);
+
+    const response = await http.post<AuthSession>("/auth/admin-login", body);
 
     if (!response.success || !response.data) {
       throw new ApiError(response.message || "管理員登入失敗");

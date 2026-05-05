@@ -12,9 +12,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class BookJsonImporter {
-    private static final String DB_URL = System.getenv().getOrDefault("LIB_DB_URL", "jdbc:mysql://localhost:3306/library_db");
+    private static final String DB_URL = System.getenv().getOrDefault("LIB_DB_URL", "jdbc:mysql://localhost:3306/library_system");
     private static final String DB_USER = System.getenv().getOrDefault("LIB_DB_USER", "root");
-    private static final String DB_PASSWORD = System.getenv().getOrDefault("LIB_DB_PASSWORD", "");
+    private static final String DB_PASSWORD = System.getenv().getOrDefault("LIB_DB_PASSWORD", "0000");
 
     public void importBooksJson() {
         String bookSql = "INSERT INTO books (title, authors, subjects, publisher, publish_year, edition, format_desc, source, note, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -25,7 +25,7 @@ public class BookJsonImporter {
              PreparedStatement isbnStmt = conn.prepareStatement(isbnSql)) {
 
             ObjectMapper objectMapper = new ObjectMapper();
-            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("importer/Books.json");
+            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("Books.json");
             if (inputStream == null) throw new RuntimeException("找不到 Books.json");
 
             List<Map<String, Object>> bookList = objectMapper.readValue(inputStream, new TypeReference<List<Map<String, Object>>>() {});
