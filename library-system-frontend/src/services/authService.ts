@@ -34,9 +34,10 @@ export async function handleUserLogin(req: LoginRequest): Promise<ApiResponse<Au
 }
 
 // 管理員登入：改成真的呼叫後端 API
+// 管理員登入：改成真的呼叫後端 API
 export async function handleAdminLogin(req: LoginRequest): Promise<ApiResponse<AuthSession>> {
   try {
-    const response = await http.post<AuthSession>("/auth/admin-login", {
+    const body = {
       username: req.studentId,
       password: req.password,
     };
