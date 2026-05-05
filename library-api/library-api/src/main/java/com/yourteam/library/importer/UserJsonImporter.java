@@ -16,7 +16,7 @@ public class UserJsonImporter {
 
     private static final String DB_URL = System.getenv().getOrDefault("LIB_DB_URL", "jdbc:mysql://localhost:3306/library_system");
     private static final String DB_USER = System.getenv().getOrDefault("LIB_DB_USER", "root");
-    private static final String DB_PASSWORD = System.getenv().getOrDefault("LIB_DB_PASSWORD", "");
+    private static final String DB_PASSWORD = System.getenv().getOrDefault("LIB_DB_PASSWORD", "0000");
 
     public void importUsersJson() {
         String sql = "INSERT INTO users (student_no, name, password, role_level, created_at, status) VALUES (?, ?, ?, ?, ?, ?)";
@@ -26,7 +26,7 @@ public class UserJsonImporter {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             ObjectMapper objectMapper = new ObjectMapper();
-            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("importer/Users.json");
+            InputStream inputStream = getClass().getClassLoader().getResourceAsStream("Users.json");
             if (inputStream == null) throw new RuntimeException("找不到 Users.json");
 
             List<Map<String, Object>> userList = objectMapper.readValue(inputStream, new TypeReference<List<Map<String, Object>>>() {});

@@ -17,8 +17,8 @@ public class AdminLoginRequest {
         return studentId != null && !studentId.isBlank() ? studentId : username;
     }
 
-    public void setStudentId(String studentId) {
-        this.studentId = studentId;
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public String getPassword() {

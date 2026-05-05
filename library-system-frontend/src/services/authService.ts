@@ -39,7 +39,11 @@ export async function handleAdminLogin(req: LoginRequest): Promise<ApiResponse<A
     const response = await http.post<AuthSession>("/auth/admin-login", {
       username: req.studentId,
       password: req.password,
-    });
+    };
+
+    console.log("admin login body:", body);
+
+    const response = await http.post<AuthSession>("/auth/admin-login", body);
 
     if (!response.success || !response.data) {
       throw new ApiError(response.message || "管理員登入失敗");

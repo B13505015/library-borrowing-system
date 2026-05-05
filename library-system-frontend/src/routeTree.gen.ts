@@ -16,7 +16,9 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UserIndexRouteImport } from './routes/user.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as UserReviewsRouteImport } from './routes/user.reviews'
 import { Route as UserRecordsRouteImport } from './routes/user.records'
+import { Route as UserFavoritesRouteImport } from './routes/user.favorites'
 import { Route as UserBooksRouteImport } from './routes/user.books'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminRecordsRouteImport } from './routes/admin.records'
@@ -57,9 +59,19 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const UserReviewsRoute = UserReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => UserRoute,
+} as any)
 const UserRecordsRoute = UserRecordsRouteImport.update({
   id: '/records',
   path: '/records',
+  getParentRoute: () => UserRoute,
+} as any)
+const UserFavoritesRoute = UserFavoritesRouteImport.update({
+  id: '/favorites',
+  path: '/favorites',
   getParentRoute: () => UserRoute,
 } as any)
 const UserBooksRoute = UserBooksRouteImport.update({
@@ -93,7 +105,9 @@ export interface FileRoutesByFullPath {
   '/admin/records': typeof AdminRecordsRoute
   '/admin/users': typeof AdminUsersRoute
   '/user/books': typeof UserBooksRoute
+  '/user/favorites': typeof UserFavoritesRoute
   '/user/records': typeof UserRecordsRoute
+  '/user/reviews': typeof UserReviewsRoute
   '/admin/': typeof AdminIndexRoute
   '/user/': typeof UserIndexRoute
 }
@@ -105,7 +119,9 @@ export interface FileRoutesByTo {
   '/admin/records': typeof AdminRecordsRoute
   '/admin/users': typeof AdminUsersRoute
   '/user/books': typeof UserBooksRoute
+  '/user/favorites': typeof UserFavoritesRoute
   '/user/records': typeof UserRecordsRoute
+  '/user/reviews': typeof UserReviewsRoute
   '/admin': typeof AdminIndexRoute
   '/user': typeof UserIndexRoute
 }
@@ -120,7 +136,9 @@ export interface FileRoutesById {
   '/admin/records': typeof AdminRecordsRoute
   '/admin/users': typeof AdminUsersRoute
   '/user/books': typeof UserBooksRoute
+  '/user/favorites': typeof UserFavoritesRoute
   '/user/records': typeof UserRecordsRoute
+  '/user/reviews': typeof UserReviewsRoute
   '/admin/': typeof AdminIndexRoute
   '/user/': typeof UserIndexRoute
 }
@@ -136,7 +154,9 @@ export interface FileRouteTypes {
     | '/admin/records'
     | '/admin/users'
     | '/user/books'
+    | '/user/favorites'
     | '/user/records'
+    | '/user/reviews'
     | '/admin/'
     | '/user/'
   fileRoutesByTo: FileRoutesByTo
@@ -148,7 +168,9 @@ export interface FileRouteTypes {
     | '/admin/records'
     | '/admin/users'
     | '/user/books'
+    | '/user/favorites'
     | '/user/records'
+    | '/user/reviews'
     | '/admin'
     | '/user'
   id:
@@ -162,7 +184,9 @@ export interface FileRouteTypes {
     | '/admin/records'
     | '/admin/users'
     | '/user/books'
+    | '/user/favorites'
     | '/user/records'
+    | '/user/reviews'
     | '/admin/'
     | '/user/'
   fileRoutesById: FileRoutesById
@@ -226,11 +250,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/user/reviews': {
+      id: '/user/reviews'
+      path: '/reviews'
+      fullPath: '/user/reviews'
+      preLoaderRoute: typeof UserReviewsRouteImport
+      parentRoute: typeof UserRoute
+    }
     '/user/records': {
       id: '/user/records'
       path: '/records'
       fullPath: '/user/records'
       preLoaderRoute: typeof UserRecordsRouteImport
+      parentRoute: typeof UserRoute
+    }
+    '/user/favorites': {
+      id: '/user/favorites'
+      path: '/favorites'
+      fullPath: '/user/favorites'
+      preLoaderRoute: typeof UserFavoritesRouteImport
       parentRoute: typeof UserRoute
     }
     '/user/books': {
@@ -282,13 +320,17 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface UserRouteChildren {
   UserBooksRoute: typeof UserBooksRoute
+  UserFavoritesRoute: typeof UserFavoritesRoute
   UserRecordsRoute: typeof UserRecordsRoute
+  UserReviewsRoute: typeof UserReviewsRoute
   UserIndexRoute: typeof UserIndexRoute
 }
 
 const UserRouteChildren: UserRouteChildren = {
   UserBooksRoute: UserBooksRoute,
+  UserFavoritesRoute: UserFavoritesRoute,
   UserRecordsRoute: UserRecordsRoute,
+  UserReviewsRoute: UserReviewsRoute,
   UserIndexRoute: UserIndexRoute,
 }
 
