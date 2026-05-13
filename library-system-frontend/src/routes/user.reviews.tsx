@@ -22,6 +22,8 @@ function Page() {
   const [comment, setComment] = useState("");
   const [reviews, setReviews] = useState<string[]>([]);
   const [query, setQuery] = useState("");
+  const [allBookReviews, setAllBookReviews] = useState<Array<{ bookId: string; bookTitle: string; review: string }>>([]);
+  const [isLoadingAllReviews, setIsLoadingAllReviews] = useState(false);
 
   const loadBorrowedBooks = async () => {
     if (!user) return;
@@ -38,23 +40,61 @@ function Page() {
     loadBorrowedBooks();
   }, [user?.userId]);
 
+
+
+  const loadAllBookReviews = async () => {
+    setIsLoadingAllReviews(true);
+    try {
+      const books = (await searchBooks("")).data ?? [];
+      const reviewPairs = await Promise.all(
+        books.map(async (book) => ({
+          book,
+          reviews: (await getBookReviews(Number(book.id))).data ?? [],
+        })),
+      );
+
+      setAllBookReviews(
+        reviewPairs.flatMap(({ book, reviews: bookReviews }) =>
+          bookReviews.map((review) => ({ bookId: String(book.id), bookTitle: book.title, review })),
+        ),
+      );
+    } finally {
+      setIsLoadingAllReviews(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!query.trim() || allBookReviews.length > 0) return;
+    loadAllBookReviews();
+  }, [query, allBookReviews.length]);
+
   const pickBook = async (id: string) => {
-    const book = borrowedBooks.find((b) => b.id === id) ?? null;
+    const book = borrowedBooks.find((b) => String(b.id) === id) ?? null;
     setSelected(book);
     if (!book) return;
     setReviews((await getBookReviews(Number(book.id))).data ?? []);
   };
 
   const filteredReviews = useMemo(() => {
-    if (!query.trim()) return reviews;
-    return reviews.filter((r) => r.toLowerCase().includes(query.toLowerCase()));
-  }, [reviews, query]);
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) {
+      return reviews.map((review) => ({ bookId: String(selected?.id ?? ""), bookTitle: selected?.title ?? "", review }));
+    }
+
+    return allBookReviews.filter(({ bookTitle, review }) => {
+      const normalized = `${bookTitle} ${review}`.toLowerCase();
+      return normalized.includes(trimmed);
+    });
+  }, [allBookReviews, reviews, query, selected?.id, selected?.title]);
 
   const submit = async () => {
     if (!selected || !user) return;
     await addReview(Number(user.userId), Number(selected.id), rating, comment);
     setComment("");
     setReviews((await getBookReviews(Number(selected.id))).data ?? []);
+    if (query.trim()) {
+      await loadAllBookReviews();
+    }
     toast.success("書評已送出");
   };
 
@@ -82,6 +122,7 @@ function Page() {
       <div className="flex gap-2">
         <Button onClick={submit} disabled={!selected || !comment.trim()}>送出書評</Button>
               </div>
-      {filteredReviews.map((r, i) => <p key={i} className="text-sm">{r}</p>)}
+      {isLoadingAllReviews && query.trim() && <p className="text-sm text-muted-foreground">正在載入全書庫書評…</p>}
+      {filteredReviews.map((item, i) => <p key={`${item.bookId}-${i}`} className="text-sm">[{item.bookTitle}] {item.review}</p>)}
     </CardContent></Card></>;
 }
