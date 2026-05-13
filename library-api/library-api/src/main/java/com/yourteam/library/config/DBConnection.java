@@ -6,17 +6,22 @@ import java.sql.SQLException;
 
 public class DBConnection {
 
-    // 資料庫連線網址
-    // 將時區改成 Asia/Taipei，避免時間差 8 小時
-	private static final String URL = "jdbc:mysql://127.0.0.1:3306/library_system?useSSL=false&serverTimezone=Asia/Taipei";
-    // MySQL 帳號
-    private static final String USER = "root";
+    // 從環境變數讀取資料庫設定
+    // 如果沒有環境變數，就使用本機預設值，方便你在自己電腦測試
+    private static final String DB_HOST = System.getenv().getOrDefault("DB_HOST", "127.0.0.1");
+    private static final String DB_PORT = System.getenv().getOrDefault("DB_PORT", "3306");
+    private static final String DB_NAME = System.getenv().getOrDefault("DB_NAME", "library_system");
+    private static final String DB_USER = System.getenv().getOrDefault("DB_USER", "root");
+    private static final String DB_PASSWORD = System.getenv().getOrDefault("DB_PASSWORD", "0000");
 
-    // MySQL 密碼
-    private static final String PASSWORD = "0000";
+    private static final String URL =
+            "jdbc:mysql://" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME
+            + "?useSSL=false"
+            + "&serverTimezone=Asia/Taipei"
+            + "&allowPublicKeyRetrieval=true"
+            + "&characterEncoding=utf8";
 
-    // 提供其他 class 呼叫的連線方法
     public static Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(URL, USER, PASSWORD);
+        return DriverManager.getConnection(URL, DB_USER, DB_PASSWORD);
     }
 }
