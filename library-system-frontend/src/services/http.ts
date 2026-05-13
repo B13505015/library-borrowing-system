@@ -7,7 +7,8 @@
 import type { ApiResponse } from "@/types/api";
 import { ApiError } from "@/types/api";
 
-export const API_BASE_URL = "http://localhost:8081/api"; // TODO: replace with Java backend base URL
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8081/api";// TODO: replace with Java backend base URL
 
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
