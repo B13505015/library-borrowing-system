@@ -322,17 +322,24 @@ public class BookRepository {
 
 public List<PopularBookResponse> findPopularBooks(String sortBy, int limit) {
         List<PopularBookResponse> list = new ArrayList<>();
-        String orderBy = "borrow_count DESC, avg_rating DESC";
+        String orderBy = "stats.borrow_count DESC, stats.avg_rating DESC";
         if ("rating".equalsIgnoreCase(sortBy)) {
-            orderBy = "avg_rating DESC, review_count DESC, borrow_count DESC";
+            orderBy = "stats.avg_rating DESC, stats.review_count DESC, stats.borrow_count DESC";
         }
-        String sql = "SELECT b.book_id, b.title, COUNT(DISTINCT br.record_id) AS borrow_count, "
-                + "COALESCE(AVG(r.rating), 0) AS avg_rating, COUNT(DISTINCT r.review_id) AS review_count "
-                + "FROM books b "
-                + "LEFT JOIN borrow_records br ON br.book_id = b.book_id "
-                + "LEFT JOIN reviews r ON r.book_id = b.book_id "
-                + "WHERE b.status <> 'REMOVED' "
-                + "GROUP BY b.book_id, b.title "
+        String sql = "SELECT COALESCE(av.available_book_id, bo.borrowed_book_id) AS book_id, stats.title, "
+                + "stats.borrow_count, stats.avg_rating, stats.review_count, "
+                + "CASE WHEN stats.available_count > 0 THEN 'AVAILABLE' ELSE 'BORROWED' END AS status "
+                + "FROM ( "
+                + "  SELECT b.title, COUNT(DISTINCT br.record_id) AS borrow_count, SUM(CASE WHEN b.status = 'AVAILABLE' THEN 1 ELSE 0 END) AS available_count, "
+                + "         COALESCE(AVG(r.rating), 0) AS avg_rating, COUNT(DISTINCT r.review_id) AS review_count "
+                + "  FROM books b "
+                + "  LEFT JOIN borrow_records br ON br.book_id = b.book_id "
+                + "  LEFT JOIN reviews r ON r.book_id = b.book_id "
+                + "  WHERE b.status <> 'REMOVED' "
+                + "  GROUP BY b.title "
+                + ") stats "
+                + "LEFT JOIN (SELECT title, MIN(book_id) AS available_book_id FROM books WHERE status = 'AVAILABLE' GROUP BY title) av ON av.title = stats.title "
+                + "LEFT JOIN (SELECT title, MIN(book_id) AS borrowed_book_id FROM books WHERE status = 'BORROWED' GROUP BY title) bo ON bo.title = stats.title "
                 + "ORDER BY " + orderBy + " LIMIT ?";
 
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -344,12 +351,12 @@ public List<PopularBookResponse> findPopularBooks(String sortBy, int limit) {
                         rs.getString("title"),
                         rs.getInt("borrow_count"),
                         rs.getDouble("avg_rating"),
-                        rs.getInt("review_count")
+                        rs.getInt("review_count"),
+                        rs.getString("status")
                 ));
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         return list;
-    }
-}
+    }}
