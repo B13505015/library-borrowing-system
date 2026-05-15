@@ -129,19 +129,8 @@ function SearchBooksPage() {
     }
   };
 
-  const userAlreadyBorrowingDetail = !!(
-    detail &&
-    user &&
-    history.some((r) => {
-      const recordUserId = Number((r as BorrowRecord & { userId?: string | number }).userId);
-      const sameUser =
-        (Number.isFinite(recordUserId) && recordUserId === Number(user.userId)) ||
-        r.studentId === user.studentId;
-      const activeBorrow = r.status !== "RETURNED" && !r.returnDate;
-      return sameUser && activeBorrow;
-    })
-  );
-  const alreadyQueuedDetail = !!reservationInfo?.myQueuePosition;
+  const userAlreadyBorrowingDetail = !!reservationInfo?.alreadyBorrowing;
+  const alreadyQueuedDetail = reservationInfo?.myQueuePosition != null;
 
   const showBookDetail = async (book: Book) => {
     setBorrowDays(user?.level === "VIP" ? 14 : 7);

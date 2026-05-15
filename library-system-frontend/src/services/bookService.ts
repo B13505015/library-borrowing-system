@@ -169,6 +169,20 @@ export async function getPopularBooks(sortBy: "borrow" | "rating", limit = 5): P
 export type ReservationInfo = {
   waitingCount: number;
   myQueuePosition: number | null;
+  alreadyBorrowing: boolean;
+  alreadyReserved: boolean;
+};
+
+export type MyReservation = {
+  reservationId: number;
+  bookId: number;
+  title: string;
+  status: "WAITING" | "NOTIFIED";
+  queuePosition: number | null;
+  queuePriority: number;
+  createdAt: string | null;
+  notifiedAt: string | null;
+  expiresAt: string | null;
 };
 
 export async function getReservationInfo(bookId: string | number, userId?: number): Promise<ApiResponse<ReservationInfo>> {
@@ -192,5 +206,17 @@ export async function getReservationNotifications(userId: number): Promise<ApiRe
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError("查詢預約通知失敗");
+  }
+}
+
+
+export async function getMyReservations(userId: number): Promise<ApiResponse<MyReservation[]>> {
+  try {
+    const response = await http.get<MyReservation[]>(`/books/my-reservations?userId=${userId}`);
+    if (!response.success || !response.data) throw new ApiError(response.message || "查詢我的預約失敗");
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("查詢我的預約失敗");
   }
 }

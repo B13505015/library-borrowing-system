@@ -134,4 +134,32 @@ public class ReservationRepository {
         }
         return false;
     }
+
+
+    public java.util.List<library_api.dto.MyReservationResponse> findMyActiveReservations(int userId) {
+        java.util.List<library_api.dto.MyReservationResponse> list = new java.util.ArrayList<>();
+        String sql = "SELECT r.reservation_id, r.book_id, COALESCE(r.reservation_title, b.title) AS title, r.status, r.queue_priority, r.created_at, r.notified_at, r.expires_at "
+                + "FROM reservations r JOIN books b ON b.book_id = r.book_id "
+                + "WHERE r.user_id = ? AND r.status IN ('WAITING','NOTIFIED') ORDER BY r.created_at DESC";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                int bookId = rs.getInt("book_id");
+                Integer qPos = "WAITING".equalsIgnoreCase(rs.getString("status")) ? findUserQueuePosition(userId, bookId) : null;
+                list.add(new library_api.dto.MyReservationResponse(
+                        rs.getInt("reservation_id"),
+                        bookId,
+                        rs.getString("title"),
+                        rs.getString("status"),
+                        qPos,
+                        rs.getInt("queue_priority"),
+                        rs.getTimestamp("created_at") == null ? null : rs.getTimestamp("created_at").toLocalDateTime().toString(),
+                        rs.getTimestamp("notified_at") == null ? null : rs.getTimestamp("notified_at").toLocalDateTime().toString(),
+                        rs.getTimestamp("expires_at") == null ? null : rs.getTimestamp("expires_at").toLocalDateTime().toString()
+                ));
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return list;
+    }
 }

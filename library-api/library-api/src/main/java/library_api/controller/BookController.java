@@ -29,6 +29,8 @@ import library_api.dto.EditBookRequest;
 import library_api.dto.PopularBookResponse;
 import library_api.dto.ReservationInfoResponse;
 import com.yourteam.library.repository.ReservationRepository;
+import com.yourteam.library.repository.BorrowRecordRepository;
+import library_api.dto.MyReservationResponse;
 
 @RestController
 @RequestMapping("/api/books")
@@ -38,11 +40,13 @@ public class BookController {
     private final BookService bookService;
     private final BookRepository bookRepository;
     private final ReservationRepository reservationRepository;
+    private final BorrowRecordRepository borrowRecordRepository;
 
     public BookController() {
         this.bookService = new BookService();
         this.bookRepository = new BookRepository();
         this.reservationRepository = new ReservationRepository();
+        this.borrowRecordRepository = new BorrowRecordRepository();
     }
 
     // 查詢全部書籍
@@ -81,7 +85,9 @@ public class BookController {
             @RequestParam(required = false) Integer userId) {
         int waitingCount = reservationRepository.countWaitingReservations(bookId);
         Integer myQueuePosition = userId == null ? null : reservationRepository.findUserQueuePosition(userId, bookId);
-        ReservationInfoResponse response = new ReservationInfoResponse(waitingCount, myQueuePosition);
+        boolean alreadyBorrowing = userId != null && borrowRecordRepository.hasActiveBorrowByUserAndBook(userId, bookId);
+        boolean alreadyReserved = myQueuePosition != null;
+        ReservationInfoResponse response = new ReservationInfoResponse(waitingCount, myQueuePosition, alreadyBorrowing, alreadyReserved);
         return new ApiResponse<>(true, response, "查詢預約資訊成功");
     }
 
@@ -90,6 +96,13 @@ public class BookController {
     public ApiResponse<List<String>> getReservationNotifications(@RequestParam int userId) {
         List<String> messages = reservationRepository.findNotifiedReservationMessages(userId);
         return new ApiResponse<>(true, messages, "查詢預約通知成功");
+    }
+
+
+    @GetMapping("/my-reservations")
+    public ApiResponse<List<MyReservationResponse>> getMyReservations(@RequestParam int userId) {
+        List<MyReservationResponse> list = reservationRepository.findMyActiveReservations(userId);
+        return new ApiResponse<>(true, list, "查詢我的預約成功");
     }
     // 把 Book entity 轉成 BookResponse DTO
     private List<BookResponse> convertToBookResponseList(List<Book> books) {
