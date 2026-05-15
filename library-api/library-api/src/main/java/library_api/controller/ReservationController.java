@@ -49,7 +49,7 @@ public class ReservationController {
         }
 
         if (reservationRepository.hasActiveReservationByTitle(request.getUserId(), request.getBookId())) {
-            return new ApiResponse<>(true, true, "你已在預約隊列中");
+            return new ApiResponse<>(false, null, "你已在預約隊列中");
         }
 
         int priority = "VIP".equalsIgnoreCase(user.getRoleLevel()) ? 10 : 1;
@@ -57,7 +57,7 @@ public class ReservationController {
         if (success) return new ApiResponse<>(true, true, "預約成功");
 
         if (reservationRepository.hasActiveReservationByTitle(request.getUserId(), request.getBookId())) {
-            return new ApiResponse<>(true, true, "你已在預約隊列中");
+            return new ApiResponse<>(false, null, "你已在預約隊列中");
         }
         return new ApiResponse<>(false, null, "預約失敗");
     }

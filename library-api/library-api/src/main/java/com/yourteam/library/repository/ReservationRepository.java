@@ -9,18 +9,29 @@ import com.yourteam.library.config.DBConnection;
 
 public class ReservationRepository {
     public boolean createReservation(int userId, int bookId, int priority) {
+        String activeBorrowSql = "SELECT 1 FROM borrow_records WHERE user_id = ? AND book_id = ? AND return_date IS NULL LIMIT 1";
         String existsSql = "SELECT 1 FROM reservations r JOIN books b ON b.book_id = r.book_id "
                 + "WHERE b.title = (SELECT title FROM books WHERE book_id = ?) "
                 + "AND r.user_id = ? AND r.status IN ('WAITING','NOTIFIED') LIMIT 1";
         String insertSql = "INSERT INTO reservations (user_id, book_id, queue_priority) VALUES (?, ?, ?)";
 
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement existsStmt = conn.prepareStatement(existsSql)) {
-            existsStmt.setInt(1, bookId);
-            existsStmt.setInt(2, userId);
-            ResultSet existsRs = existsStmt.executeQuery();
-            if (existsRs.next()) {
-                return true;
+        try (Connection conn = DBConnection.getConnection()) {
+            try (PreparedStatement activeBorrowStmt = conn.prepareStatement(activeBorrowSql)) {
+                activeBorrowStmt.setInt(1, userId);
+                activeBorrowStmt.setInt(2, bookId);
+                ResultSet borrowRs = activeBorrowStmt.executeQuery();
+                if (borrowRs.next()) {
+                    return false;
+                }
+            }
+
+            try (PreparedStatement existsStmt = conn.prepareStatement(existsSql)) {
+                existsStmt.setInt(1, bookId);
+                existsStmt.setInt(2, userId);
+                ResultSet existsRs = existsStmt.executeQuery();
+                if (existsRs.next()) {
+                    return false;
+                }
             }
 
             try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
