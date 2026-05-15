@@ -29,6 +29,7 @@ import {
 import { useAsync } from "@/hooks/useAsync";
 import { searchBooks, getBookBorrowHistory } from "@/services/bookService";
 import { borrowBook } from "@/services/borrowService";
+import { reserveBook } from "@/services/reservationService";
 import { addFavorite, getMyFavoriteBookIds, removeFavorite } from "@/services/favoriteService";
 import { useAuth } from "@/context/AuthContext";
 import type { Book } from "@/types/book";
@@ -73,7 +74,11 @@ function SearchBooksPage() {
     setBorrowingId(book.id);
 
     try {
-      await borrowBook(user.userId, Number(book.id), borrowDays);
+      if (book.status === "BORROWED") {
+        await reserveBook(user.userId, Number(book.id));
+      } else {
+        await borrowBook(user.userId, Number(book.id), borrowDays);
+      }
       toast.success(
         book.status === "AVAILABLE"
           ? `已成功借閱《${book.title}》${borrowDays} 天`
