@@ -43,4 +43,52 @@ public class ReservationRepository {
         return false;
     }
 
+
+    public int countWaitingReservations(int bookId) {
+        String sql = "SELECT COUNT(*) AS c FROM reservations r JOIN books b ON b.book_id = r.book_id WHERE b.title = (SELECT title FROM books WHERE book_id = ?) AND r.status = 'WAITING'";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, bookId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getInt("c");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    public Integer findUserQueuePosition(int userId, int bookId) {
+        String sql = "SELECT r.user_id FROM reservations r JOIN books b ON b.book_id = r.book_id WHERE b.title = (SELECT title FROM books WHERE book_id = ?) AND r.status = 'WAITING' ORDER BY r.queue_priority DESC, r.created_at ASC";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, bookId);
+            ResultSet rs = pstmt.executeQuery();
+            int position = 0;
+            while (rs.next()) {
+                position++;
+                if (rs.getInt("user_id") == userId) {
+                    return position;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public java.util.List<String> findNotifiedReservationMessages(int userId) {
+        java.util.List<String> msgs = new java.util.ArrayList<>();
+        String sql = "SELECT DISTINCT b.title, r.expires_at FROM reservations r JOIN books b ON b.book_id = r.book_id "
+                + "WHERE r.user_id = ? AND r.status = 'NOTIFIED' AND (r.expires_at IS NULL OR r.expires_at >= NOW()) ORDER BY r.notified_at DESC";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                String title = rs.getString("title");
+                java.sql.Timestamp expires = rs.getTimestamp("expires_at");
+                msgs.add("《" + title + "》可借用了" + (expires == null ? "" : "，請於 " + expires.toLocalDateTime().toLocalDate() + " 前借閱"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return msgs;
+    }
 }

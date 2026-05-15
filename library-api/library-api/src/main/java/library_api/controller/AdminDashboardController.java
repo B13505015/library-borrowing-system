@@ -3,7 +3,9 @@ package library_api.controller;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,12 +54,7 @@ public class AdminDashboardController {
 
         int totalUsers = users.size();
 
-        int overdueCount = 0;
-        for (BorrowRecord record : records) {
-            if (isOverdue(record)) {
-                overdueCount++;
-            }
-        }
+        int overdueCount = countUniqueOverdue(records);
 
         DashboardStatsResponse response = new DashboardStatsResponse(
                 totalBooks,
@@ -104,6 +101,7 @@ public class AdminDashboardController {
     public ApiResponse<List<BorrowRecordResponse>> getOverdueRecords() {
         List<BorrowRecord> records = borrowRecordRepository.findAllRecords();
         List<BorrowRecordResponse> responseList = new ArrayList<>();
+        Set<String> seenKeys = new HashSet<>();
 
         for (BorrowRecord record : records) {
             if (!isOverdue(record)) continue;
@@ -111,6 +109,10 @@ public class AdminDashboardController {
             User user = userRepository.findByUserId(record.getUserId());
             Book book = bookRepository.findByBookId(record.getBookId());
             if (user == null || book == null) continue;
+
+            String overdueKey = buildOverdueKey(user, book);
+            if (seenKeys.contains(overdueKey)) continue;
+            seenKeys.add(overdueKey);
 
             responseList.add(new BorrowRecordResponse(
                     String.valueOf(record.getRecordId()),
@@ -125,6 +127,25 @@ public class AdminDashboardController {
         }
 
         return new ApiResponse<>(true, responseList, "查詢逾期紀錄成功");
+    }
+
+
+    private int countUniqueOverdue(List<BorrowRecord> records) {
+        Set<String> seenKeys = new HashSet<>();
+        for (BorrowRecord record : records) {
+            if (!isOverdue(record)) continue;
+
+            User user = userRepository.findByUserId(record.getUserId());
+            Book book = bookRepository.findByBookId(record.getBookId());
+            if (user == null || book == null) continue;
+
+            seenKeys.add(buildOverdueKey(user, book));
+        }
+        return seenKeys.size();
+    }
+
+    private String buildOverdueKey(User user, Book book) {
+        return user.getStudentNo() + "::" + book.getTitle();
     }
 
     private boolean isOverdue(BorrowRecord record) {
