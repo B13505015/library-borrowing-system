@@ -9,12 +9,26 @@ import com.yourteam.library.config.DBConnection;
 
 public class ReservationRepository {
     public boolean createReservation(int userId, int bookId, int priority) {
-        String sql = "INSERT INTO reservations (user_id, book_id, queue_priority) VALUES (?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, userId);
-            pstmt.setInt(2, bookId);
-            pstmt.setInt(3, priority);
-            return pstmt.executeUpdate() > 0;
+        String existsSql = "SELECT 1 FROM reservations r JOIN books b ON b.book_id = r.book_id "
+                + "WHERE b.title = (SELECT title FROM books WHERE book_id = ?) "
+                + "AND r.user_id = ? AND r.status IN ('WAITING','NOTIFIED') LIMIT 1";
+        String insertSql = "INSERT INTO reservations (user_id, book_id, queue_priority) VALUES (?, ?, ?)";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement existsStmt = conn.prepareStatement(existsSql)) {
+            existsStmt.setInt(1, bookId);
+            existsStmt.setInt(2, userId);
+            ResultSet existsRs = existsStmt.executeQuery();
+            if (existsRs.next()) {
+                return true;
+            }
+
+            try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                insertStmt.setInt(1, userId);
+                insertStmt.setInt(2, bookId);
+                insertStmt.setInt(3, priority);
+                return insertStmt.executeUpdate() > 0;
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -45,7 +59,7 @@ public class ReservationRepository {
 
 
     public int countWaitingReservations(int bookId) {
-        String sql = "SELECT COUNT(*) AS c FROM reservations r JOIN books b ON b.book_id = r.book_id WHERE b.title = (SELECT title FROM books WHERE book_id = ?) AND r.status = 'WAITING'";
+        String sql = "SELECT COUNT(DISTINCT r.user_id) AS c FROM reservations r JOIN books b ON b.book_id = r.book_id WHERE b.title = (SELECT title FROM books WHERE book_id = ?) AND r.status = 'WAITING'";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, bookId);
             ResultSet rs = pstmt.executeQuery();
@@ -57,7 +71,7 @@ public class ReservationRepository {
     }
 
     public Integer findUserQueuePosition(int userId, int bookId) {
-        String sql = "SELECT r.user_id FROM reservations r JOIN books b ON b.book_id = r.book_id WHERE b.title = (SELECT title FROM books WHERE book_id = ?) AND r.status = 'WAITING' ORDER BY r.queue_priority DESC, r.created_at ASC";
+        String sql = "SELECT r.user_id FROM reservations r JOIN books b ON b.book_id = r.book_id WHERE b.title = (SELECT title FROM books WHERE book_id = ?) AND r.status = 'WAITING' GROUP BY r.user_id ORDER BY MAX(r.queue_priority) DESC, MIN(r.created_at) ASC";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, bookId);
             ResultSet rs = pstmt.executeQuery();
