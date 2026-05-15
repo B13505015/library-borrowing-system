@@ -94,8 +94,18 @@ function AdminBooksPage() {
     setHistoryLoading(true);
 
     try {
-      const res = await getBookBorrowHistory(book.id);
-      setHistory(res.data);
+      const sameTitleBooks = (data ?? []).filter((b) => b.title === book.title);
+      const historyResponses = await Promise.all(
+        sameTitleBooks.map((b) => getBookBorrowHistory(b.id).catch(() => null)),
+      );
+      const mergedHistory = historyResponses
+        .flatMap((res) => res?.data ?? [])
+        .reduce<BorrowRecord[]>((acc, record) => {
+          if (!acc.some((item) => item.id === record.id)) acc.push(record);
+          return acc;
+        }, [])
+        .sort((a, b) => new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime());
+      setHistory(mergedHistory);
     } catch {
       setHistory([]);
     } finally {
