@@ -10,7 +10,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { useAsync } from "@/hooks/useAsync";
 import { useAuth } from "@/context/AuthContext";
 import { borrowBook, getMyBorrowRecords } from "@/services/borrowService";
-import { getAllBooks, getBookBorrowHistory, getPopularBooks, getReservationInfo, type ReservationInfo } from "@/services/bookService";
+import { getBookBorrowHistory, getPopularBooks, getReservationInfo, type ReservationInfo } from "@/services/bookService";
 import { toast } from "sonner";
 import { formatDate, daysUntil, isDueSoon, dueSoonText } from "@/lib/format";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -32,41 +32,16 @@ function UserDashboardPage() {
 
   const { data, loading, error, refetch } = useAsync(() => getMyBorrowRecords(user!.studentId).then((r) => r.data), [user?.studentId]);
   const { data: rankedBooks, refetch: refetchRanked } = useAsync(() => getPopularBooks(rankMode === "BORROW" ? "borrow" : "rating", 20).then((r) => r.data), [rankMode]);
-  const { data: allBooks, refetch: refetchAllBooks } = useAsync(() => getAllBooks().then((r) => r.data), []);
 
   const availableBorrowDays = user?.level === "VIP" ? [1, 3, 7, 14] : [1, 3, 7];
   const active = (data ?? []).filter((r) => r.status !== "RETURNED");
   const overdue = (data ?? []).filter((r) => r.status === "OVERDUE");
   const dueSoon = active.filter((r) => r.status !== "OVERDUE" && isDueSoon(r.dueDate));
 
-  const popularBooks = useMemo(() => {
-    const list = rankedBooks ?? [];
-    const statusByTitle = new Map<string, "AVAILABLE" | "BORROWED" | "REMOVED">();
-    const bookIdByTitle = new Map<string, number>();
-    const bookByTitle = new Map<string, Book>();
-    for (const book of allBooks ?? []) {
-      const id = Number(book.id);
-      if (!Number.isFinite(id)) continue;
-      const cur = statusByTitle.get(book.title);
-      if (!cur || cur === "BORROWED") {
-        statusByTitle.set(book.title, book.status);
-        bookIdByTitle.set(book.title, id);
-        bookByTitle.set(book.title, book);
-      }
-      if (book.status === "AVAILABLE") {
-        statusByTitle.set(book.title, "AVAILABLE");
-        bookIdByTitle.set(book.title, id);
-        bookByTitle.set(book.title, book);
-      }
-    }
-    const deduped = new Map<string, (typeof list)[number]>();
-    for (const item of list) if (!deduped.has(item.title)) deduped.set(item.title, item);
-    return Array.from(deduped.values()).slice(0, 5).map((item) => ({ ...item, status: statusByTitle.get(item.title) ?? "BORROWED", bookId: bookIdByTitle.get(item.title) ?? item.bookId, detail: bookByTitle.get(item.title) }));
-  }, [allBooks, rankedBooks]);
+  const popularBooks = useMemo(() => (rankedBooks ?? []).slice(0, 5), [rankedBooks]);
 
   const showPopularDetail = async (bookId: number, title: string) => {
-    const selected = (allBooks ?? []).find((b) => Number(b.id) === bookId) ?? (allBooks ?? []).find((b) => b.title === title);
-    if (!selected) return;
+    const selected = { id: String(bookId), title, publisher: "", publishYear: 0, edition: "", format: "", source: "", note: "", status: "BORROWED" } as Book;
     setDetail(selected);
     setBorrowDays(user?.level === "VIP" ? 14 : 7);
     setHistoryLoading(true);
@@ -90,11 +65,11 @@ function UserDashboardPage() {
     try {
       const response = await borrowBook(user.userId, Number(detail.id), borrowDays);
       toast.success(response.message || "借閱/預約成功");
-      await Promise.all([refetch(), refetchRanked(), refetchAllBooks()]);
-      const refreshed = await getAllBooks();
-      const now = refreshed.data.find((b) => b.title === detail.title && b.status === "AVAILABLE") ?? refreshed.data.find((b) => b.title === detail.title) ?? detail;
-      setDetail(now);
-      const reservationRes = await getReservationInfo(now.id, user.userId);
+      await Promise.all([refetch(), refetchRanked()]);
+      const refreshedPopular = await getPopularBooks(rankMode === "BORROW" ? "borrow" : "rating", 20);
+      const now = refreshedPopular.data.find((b) => b.title === detail.title);
+      if (now) setDetail({ ...detail, id: String(now.bookId), status: now.status });
+      const reservationRes = await getReservationInfo(now?.bookId ?? detail.id, user.userId);
       setReservationInfo(reservationRes.data);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "借閱失敗");

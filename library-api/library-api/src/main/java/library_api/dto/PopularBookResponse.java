@@ -6,13 +6,15 @@ public class PopularBookResponse {
     private int borrowCount;
     private double avgRating;
     private int reviewCount;
+    private String status;
 
-    public PopularBookResponse(int bookId, String title, int borrowCount, double avgRating, int reviewCount) {
+    public PopularBookResponse(int bookId, String title, int borrowCount, double avgRating, int reviewCount, String status) {
         this.bookId = bookId;
         this.title = title;
         this.borrowCount = borrowCount;
         this.avgRating = avgRating;
         this.reviewCount = reviewCount;
+        this.status = status;
     }
 
     public int getBookId() { return bookId; }
@@ -20,4 +22,5 @@ public class PopularBookResponse {
     public int getBorrowCount() { return borrowCount; }
     public double getAvgRating() { return avgRating; }
     public int getReviewCount() { return reviewCount; }
+    public String getStatus() { return status; }
 }
