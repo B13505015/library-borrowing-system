@@ -84,6 +84,13 @@ public class BookController {
         ReservationInfoResponse response = new ReservationInfoResponse(waitingCount, myQueuePosition);
         return new ApiResponse<>(true, response, "查詢預約資訊成功");
     }
+
+
+    @GetMapping("/reservation-notifications")
+    public ApiResponse<List<String>> getReservationNotifications(@RequestParam int userId) {
+        List<String> messages = reservationRepository.findNotifiedReservationMessages(userId);
+        return new ApiResponse<>(true, messages, "查詢預約通知成功");
+    }
     // 把 Book entity 轉成 BookResponse DTO
     private List<BookResponse> convertToBookResponseList(List<Book> books) {
         List<BookResponse> responseList = new ArrayList<>();

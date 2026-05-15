@@ -10,7 +10,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { useAsync } from "@/hooks/useAsync";
 import { useAuth } from "@/context/AuthContext";
 import { borrowBook, getMyBorrowRecords } from "@/services/borrowService";
-import { getBookBorrowHistory, getPopularBooks, getReservationInfo, type ReservationInfo } from "@/services/bookService";
+import { getBookBorrowHistory, getPopularBooks, getReservationInfo, getReservationNotifications, type ReservationInfo } from "@/services/bookService";
 import { toast } from "sonner";
 import { formatDate, daysUntil, isDueSoon, dueSoonText } from "@/lib/format";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -32,6 +32,7 @@ function UserDashboardPage() {
 
   const { data, loading, error, refetch } = useAsync(() => getMyBorrowRecords(user!.studentId).then((r) => r.data), [user?.studentId]);
   const { data: rankedBooks, refetch: refetchRanked } = useAsync(() => getPopularBooks(rankMode === "BORROW" ? "borrow" : "rating", 20).then((r) => r.data), [rankMode]);
+  const { data: reservationNotifications, refetch: refetchReservationNotifications } = useAsync(() => user ? getReservationNotifications(user.userId).then((r) => r.data) : Promise.resolve([]), [user?.userId]);
 
   const availableBorrowDays = user?.level === "VIP" ? [1, 3, 7, 14] : [1, 3, 7];
   const active = (data ?? []).filter((r) => r.status !== "RETURNED");
@@ -65,7 +66,7 @@ function UserDashboardPage() {
     try {
       const response = await borrowBook(user.userId, Number(detail.id), borrowDays);
       toast.success(response.message || "借閱/預約成功");
-      await Promise.all([refetch(), refetchRanked()]);
+      await Promise.all([refetch(), refetchRanked(), refetchReservationNotifications()]);
       const refreshedPopular = await getPopularBooks(rankMode === "BORROW" ? "borrow" : "rating", 20);
       const now = refreshedPopular.data.find((b) => b.title === detail.title);
       if (now) setDetail({ ...detail, id: String(now.bookId), status: now.status });
@@ -80,6 +81,7 @@ function UserDashboardPage() {
 
   return <>
     <PageHeader title={`歡迎回來，${user?.name ?? ""}`} description={`學號 ${user?.studentId}｜身分 ${user?.level === "VIP" ? "VIP 使用者" : "一般使用者"}`} />
+    {!!reservationNotifications?.length && <Card className="mb-4 border-amber-300 bg-amber-50"><CardContent className="p-4"><p className="mb-2 text-sm font-semibold text-amber-800">預約到書通知</p>{reservationNotifications.map((m, i)=><p key={i} className="text-sm text-amber-800">• {m}</p>)}</CardContent></Card>}
     {loading ? <LoadingState /> : error ? <ErrorState message={error} onRetry={refetch} /> : <div className="grid gap-5 lg:grid-cols-3">
       <Card className="lg:col-span-2"><CardContent className="p-6"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">借閱中的書籍</h2><Link to="/user/records" className="text-sm text-primary hover:underline">查看全部 →</Link></div>{active.length === 0 ? <div className="rounded-xl border border-dashed p-6 text-center"><p>目前沒有借閱中的書籍</p><Button asChild><Link to="/user/books">查詢書籍</Link></Button></div> : <ul className="divide-y">{active.slice(0,5).map((r)=><li key={r.id} className="flex items-center justify-between py-3"><div><p className="font-medium">{r.bookTitle}</p><p className="text-xs">借閱：{formatDate(r.borrowDate)} 到期：{formatDate(r.dueDate)} {r.status !== "OVERDUE" && `（剩 ${daysUntil(r.dueDate)} 天）`}</p></div><StatusBadge status={r.status} /></li>)}</ul>}</CardContent></Card>
       <Card><CardContent className="p-6"><h2 className="mb-3 text-lg font-semibold">逾期 / 即將到期提醒</h2><div className="grid gap-3 md:grid-cols-2"><div className="rounded-md border border-red-300 bg-red-50 p-3"><p className="mb-2 text-sm font-semibold text-red-700">逾期提醒</p>{overdue.length===0?<p className="text-sm text-red-700/80">目前沒有逾期書籍。</p>:overdue.map((r)=><p key={r.id} className="text-sm text-red-700">{r.bookTitle}（已逾期 {Math.abs(daysUntil(r.dueDate))} 天）</p>)}</div><div className="rounded-md border border-yellow-300 bg-yellow-50 p-3"><p className="mb-2 text-sm font-semibold text-yellow-700">即將到期提醒</p>{dueSoon.length===0?<p className="text-sm text-yellow-700/80">目前沒有即將到期書籍。</p>:dueSoon.map((r)=><p key={r.id} className="text-sm text-yellow-700">{r.bookTitle}（{dueSoonText(r.dueDate)}）</p>)}</div></div></CardContent></Card>

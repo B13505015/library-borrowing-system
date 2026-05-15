@@ -182,3 +182,15 @@ export async function getReservationInfo(bookId: string | number, userId?: numbe
     throw new ApiError("查詢預約資訊失敗");
   }
 }
+
+
+export async function getReservationNotifications(userId: number): Promise<ApiResponse<string[]>> {
+  try {
+    const response = await http.get<string[]>(`/books/reservation-notifications?userId=${userId}`);
+    if (!response.success || !response.data) throw new ApiError(response.message || "查詢預約通知失敗");
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("查詢預約通知失敗");
+  }
+}
