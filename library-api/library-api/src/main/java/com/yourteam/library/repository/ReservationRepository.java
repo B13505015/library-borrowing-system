@@ -105,4 +105,19 @@ public class ReservationRepository {
         }
         return msgs;
     }
+
+    public boolean hasActiveReservationByTitle(int userId, int bookId) {
+        String sql = "SELECT 1 FROM reservations r JOIN books b ON b.book_id = r.book_id "
+                + "WHERE b.title = (SELECT title FROM books WHERE book_id = ?) "
+                + "AND r.user_id = ? AND r.status IN ('WAITING','NOTIFIED') LIMIT 1";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, bookId);
+            pstmt.setInt(2, userId);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }
