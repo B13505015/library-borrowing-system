@@ -27,9 +27,10 @@ function AdminDashboardPage() {
     const rows = overdue.data ?? [];
     const map = new Map<string, (typeof rows)[number]>();
     for (const row of rows) {
-      const existing = map.get(row.bookTitle);
+      const dedupeKey = `${row.studentId}::${row.bookTitle}`;
+      const existing = map.get(dedupeKey);
       if (!existing || new Date(row.dueDate).getTime() < new Date(existing.dueDate).getTime()) {
-        map.set(row.bookTitle, row);
+        map.set(dedupeKey, row);
       }
     }
     return Array.from(map.values());
