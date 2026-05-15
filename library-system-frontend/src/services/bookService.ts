@@ -164,3 +164,21 @@ export async function getPopularBooks(sortBy: "borrow" | "rating", limit = 5): P
   }
 }
 
+
+
+export type ReservationInfo = {
+  waitingCount: number;
+  myQueuePosition: number | null;
+};
+
+export async function getReservationInfo(bookId: string | number, userId?: number): Promise<ApiResponse<ReservationInfo>> {
+  try {
+    const query = userId ? `?userId=${userId}` : "";
+    const response = await http.get<ReservationInfo>(`/books/${bookId}/reservation-info${query}`);
+    if (!response.success || !response.data) throw new ApiError(response.message || "查詢預約資訊失敗");
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("查詢預約資訊失敗");
+  }
+}
