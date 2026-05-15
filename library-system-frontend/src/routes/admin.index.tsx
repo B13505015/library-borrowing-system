@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { BookCopy, BookOpen, Users, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -21,6 +22,18 @@ function AdminDashboardPage() {
   const stats = useAsync(() => fetchDashboardStats().then((r) => r.data), []);
   const recent = useAsync(() => getRecentBorrowRecords(6).then((r) => r.data), []);
   const overdue = useAsync(() => getOverdueRecords().then((r) => r.data), []);
+
+  const uniqueOverdue = useMemo(() => {
+    const rows = overdue.data ?? [];
+    const map = new Map<string, (typeof rows)[number]>();
+    for (const row of rows) {
+      const existing = map.get(row.bookTitle);
+      if (!existing || new Date(row.dueDate).getTime() < new Date(existing.dueDate).getTime()) {
+        map.set(row.bookTitle, row);
+      }
+    }
+    return Array.from(map.values());
+  }, [overdue.data]);
 
   return (
     <>
@@ -80,11 +93,11 @@ function AdminDashboardPage() {
               <LoadingState />
             ) : overdue.error ? (
               <ErrorState message={overdue.error} onRetry={overdue.refetch} />
-            ) : !overdue.data || overdue.data.length === 0 ? (
+            ) : uniqueOverdue.length === 0 ? (
               <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">目前無逾期紀錄。</p>
             ) : (
               <ul className="space-y-2">
-                {overdue.data.map((r) => (
+                {uniqueOverdue.map((r) => (
                   <li key={r.id} className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
                     <p className="text-sm font-medium text-destructive">{r.bookTitle}</p>
                     <p className="text-xs text-destructive/80">
