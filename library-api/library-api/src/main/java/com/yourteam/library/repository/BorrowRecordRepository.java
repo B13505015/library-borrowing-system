@@ -343,4 +343,18 @@ public class BorrowRecordRepository {
         return 0;
     }
 
+
+
+    public boolean hasActiveBorrowByUserAndBook(int userId, int bookId) {
+        String sql = "SELECT 1 FROM borrow_records WHERE user_id = ? AND book_id = ? AND return_date IS NULL LIMIT 1";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            pstmt.setInt(2, bookId);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }
