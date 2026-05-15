@@ -86,8 +86,12 @@ function SearchBooksPage() {
           : `《${book.title}》目前借出中，已送出預約申請`,
       );
       if (book.status === "BORROWED") {
-        const reservationRes = await getReservationInfo(book.id, user.userId);
+        const [reservationRes, historyRes] = await Promise.all([
+          getReservationInfo(book.id, user.userId),
+          getBookBorrowHistory(book.id),
+        ]);
         setReservationInfo(reservationRes.data);
+        setHistory(historyRes.data);
       } else {
         setDetail(null);
       }
@@ -125,7 +129,18 @@ function SearchBooksPage() {
     }
   };
 
-  const userAlreadyBorrowingDetail = !!(detail && user && history.some((r) => r.studentId === user.studentId && r.status !== "RETURNED"));
+  const userAlreadyBorrowingDetail = !!(
+    detail &&
+    user &&
+    history.some((r) => {
+      const recordUserId = Number((r as BorrowRecord & { userId?: string | number }).userId);
+      const sameUser =
+        (Number.isFinite(recordUserId) && recordUserId === Number(user.userId)) ||
+        r.studentId === user.studentId;
+      const activeBorrow = r.status !== "RETURNED" && !r.returnDate;
+      return sameUser && activeBorrow;
+    })
+  );
   const alreadyQueuedDetail = !!reservationInfo?.myQueuePosition;
 
   const showBookDetail = async (book: Book) => {
@@ -327,6 +342,11 @@ function SearchBooksPage() {
               </div>
 
               <div className="border-t bg-background px-6 py-4">
+                {(userAlreadyBorrowingDetail || alreadyQueuedDetail) && (
+                  <p className="mb-2 text-sm font-medium text-amber-700">
+                    {userAlreadyBorrowingDetail ? "你已借閱此書，無法再次預約" : "你已在預約隊列中"}
+                  </p>
+                )}
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setDetail(null)}>
                     關閉
