@@ -13,7 +13,10 @@ public class ReservationRepository {
         String existsSql = "SELECT 1 FROM reservations r JOIN books b ON b.book_id = r.book_id "
                 + "WHERE b.title = (SELECT title FROM books WHERE book_id = ?) "
                 + "AND r.user_id = ? AND r.status IN ('WAITING','NOTIFIED') LIMIT 1";
-        String insertSql = "INSERT INTO reservations (user_id, book_id, queue_priority) VALUES (?, ?, ?)";
+        String insertSql = "INSERT INTO reservations (user_id, book_id, reservation_title, queue_priority) "
+                + "SELECT ?, b.book_id, b.title, ? "
+                + "FROM books b "
+                + "WHERE b.book_id = ?";
 
         try (Connection conn = DBConnection.getConnection()) {
             try (PreparedStatement activeBorrowStmt = conn.prepareStatement(activeBorrowSql)) {
@@ -36,8 +39,8 @@ public class ReservationRepository {
 
             try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
                 insertStmt.setInt(1, userId);
-                insertStmt.setInt(2, bookId);
-                insertStmt.setInt(3, priority);
+                insertStmt.setInt(2, priority);
+                insertStmt.setInt(3, bookId);
                 return insertStmt.executeUpdate() > 0;
             }
         } catch (Exception e) {
