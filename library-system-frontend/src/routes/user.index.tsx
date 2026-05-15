@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BookOpen, BookPlus, ClipboardList, Heart, MessageSquare } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -10,7 +10,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { useAsync } from "@/hooks/useAsync";
 import { useAuth } from "@/context/AuthContext";
 import { borrowBook, getMyBorrowRecords } from "@/services/borrowService";
-import { getPopularBooks } from "@/services/bookService";
+import { getAllBooks, getPopularBooks } from "@/services/bookService";
 import { toast } from "sonner";
 import { formatDate, daysUntil, isDueSoon, dueSoonText } from "@/lib/format";
 
@@ -23,19 +23,52 @@ function UserDashboardPage() {
   const [rankMode, setRankMode] = useState<RankMode>("BORROW");
   const { data, loading, error, refetch } = useAsync(() => getMyBorrowRecords(user!.studentId).then((r) => r.data), [user?.studentId]);
   const { data: rankedBooks } = useAsync(
-    () => getPopularBooks(rankMode === "BORROW" ? "borrow" : "rating", 5).then((r) => r.data),
+    () => getPopularBooks(rankMode === "BORROW" ? "borrow" : "rating", 20).then((r) => r.data),
     [rankMode],
   );
+  const { data: allBooks } = useAsync(() => getAllBooks().then((r) => r.data), []);
 
   const active = (data ?? []).filter((r) => r.status !== "RETURNED");
   const overdue = (data ?? []).filter((r) => r.status === "OVERDUE");
   const dueSoon = active.filter((r) => r.status !== "OVERDUE" && isDueSoon(r.dueDate));
 
+
+  const popularBooks = useMemo(() => {
+    const list = rankedBooks ?? [];
+    const bookStatusByTitle = new Map<string, "AVAILABLE" | "BORROWED" | "REMOVED">();
+    const bookIdByTitle = new Map<string, number>();
+
+    for (const book of allBooks ?? []) {
+      const currentStatus = bookStatusByTitle.get(book.title);
+      const normalizedId = Number(book.id);
+      if (!Number.isFinite(normalizedId)) continue;
+      if (!currentStatus || currentStatus === "BORROWED") {
+        bookStatusByTitle.set(book.title, book.status);
+        bookIdByTitle.set(book.title, normalizedId);
+      }
+      if (book.status === "AVAILABLE") {
+        bookStatusByTitle.set(book.title, "AVAILABLE");
+        bookIdByTitle.set(book.title, normalizedId);
+      }
+    }
+
+    const deduped = new Map<string, (typeof list)[number]>();
+    for (const item of list) {
+      if (!deduped.has(item.title)) deduped.set(item.title, item);
+    }
+
+    return Array.from(deduped.values()).slice(0, 5).map((item) => ({
+      ...item,
+      bookId: bookIdByTitle.get(item.title) ?? item.bookId,
+      status: bookStatusByTitle.get(item.title) ?? "BORROWED",
+    }));
+  }, [allBooks, rankedBooks]);
+
   const quickBorrow = async (bookId: number, title: string) => {
     if (!user) return;
     try {
-      await borrowBook(user.userId, bookId, user.level === "VIP" ? 14 : 7);
-      toast.success(`已借閱《${title}》`);
+      const response = await borrowBook(user.userId, bookId, user.level === "VIP" ? 14 : 7);
+      toast.success(response.message || `已借閱《${title}》`);
       refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "借閱失敗");
@@ -59,7 +92,7 @@ function UserDashboardPage() {
         </div>
       </CardContent></Card>
 
-      <Card className="lg:col-span-3"><CardContent className="p-6"><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-semibold">熱門書籍</h2><div className="space-x-2"><Button size="sm" variant={rankMode==="BORROW"?"default":"outline"} onClick={()=>setRankMode("BORROW")}>借閱最多</Button><Button size="sm" variant={rankMode==="RATING"?"default":"outline"} onClick={()=>setRankMode("RATING")}>評論高分</Button></div></div><ul className="space-y-2">{(rankedBooks ?? []).map((b,idx)=><li key={b.bookId} className="flex items-center justify-between rounded border p-3 text-sm"><div><span className="mr-2 font-semibold">#{idx+1}</span>{b.title}<span className="ml-2 text-muted-foreground">借閱 {b.borrowCount} 次｜評分 {Number(b.avgRating).toFixed(1)}（{b.reviewCount} 筆）</span></div><Button size="sm" onClick={()=>quickBorrow(b.bookId, b.title)}><BookPlus className="mr-1 h-4 w-4" />借閱</Button></li>)}</ul>{(rankedBooks ?? []).length===0 && <p className="text-sm text-muted-foreground">目前查無熱門書籍資料，請先產生借閱/書評紀錄。</p>}</CardContent></Card>
+      <Card className="lg:col-span-3"><CardContent className="p-6"><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-semibold">熱門書籍</h2><div className="space-x-2"><Button size="sm" variant={rankMode==="BORROW"?"default":"outline"} onClick={()=>setRankMode("BORROW")}>借閱最多</Button><Button size="sm" variant={rankMode==="RATING"?"default":"outline"} onClick={()=>setRankMode("RATING")}>評論高分</Button></div></div><ul className="space-y-2">{popularBooks.map((b,idx)=><li key={b.title} className="flex items-center justify-between rounded border p-3 text-sm"><div><span className="mr-2 font-semibold">#{idx+1}</span>{b.title}<span className="ml-2 text-muted-foreground">借閱 {b.borrowCount} 次｜評分 {Number(b.avgRating).toFixed(1)}（{b.reviewCount} 筆）</span></div><Button size="sm" onClick={()=>quickBorrow(b.bookId, b.title)}><BookPlus className="mr-1 h-4 w-4" />{b.status === "AVAILABLE" ? "借閱" : "預約"}</Button></li>)}</ul>{popularBooks.length===0 && <p className="text-sm text-muted-foreground">目前查無熱門書籍資料，請先產生借閱/書評紀錄。</p>}</CardContent></Card>
 
       <QuickAction to="/user/books" icon={BookOpen} title="查詢書籍" desc="搜尋館藏並借閱" />
       <QuickAction to="/user/records" icon={ClipboardList} title="我的借閱紀錄" desc="查看與歸還" />
