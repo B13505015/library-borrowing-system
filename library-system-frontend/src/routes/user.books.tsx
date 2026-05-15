@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAsync } from "@/hooks/useAsync";
 import { searchBooks, getBookBorrowHistory, getReservationInfo, type ReservationInfo } from "@/services/bookService";
-import { borrowBook } from "@/services/borrowService";
+import { borrowBook, getMyBorrowRecords } from "@/services/borrowService";
 import { reserveBook } from "@/services/reservationService";
 import { addFavorite, getMyFavoriteBookIds, removeFavorite } from "@/services/favoriteService";
 import { useAuth } from "@/context/AuthContext";
@@ -51,6 +51,7 @@ function SearchBooksPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [reservationInfo, setReservationInfo] = useState<ReservationInfo | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
+  const [activeBorrowedBookIds, setActiveBorrowedBookIds] = useState<Set<number>>(new Set());
 
   const { data, loading, error, refetch } = useAsync(
     () => searchBooks(keyword).then((r) => r.data),
@@ -67,7 +68,16 @@ function SearchBooksPage() {
         setFavoriteIds(new Set(res.data));
       } catch {}
     };
+    const loadMyActiveBorrows = async () => {
+      if (!user) return;
+      try {
+        const res = await getMyBorrowRecords(user.studentId);
+        const ids = new Set((res.data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId)).filter((v) => Number.isFinite(v)));
+        setActiveBorrowedBookIds(ids);
+      } catch {}
+    };
     loadFavorites();
+    loadMyActiveBorrows();
   }, [user]);
 
   const handleBorrow = async (book: Book) => {
@@ -98,6 +108,9 @@ function SearchBooksPage() {
       setBorrowDays(7);
       setHistory([]);
       refetch();
+      const myRes = await getMyBorrowRecords(user.studentId);
+      const ids = new Set((myRes.data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId)).filter((v) => Number.isFinite(v)));
+      setActiveBorrowedBookIds(ids);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "借閱失敗");
     } finally {
@@ -212,11 +225,11 @@ function SearchBooksPage() {
                         variant={b.status === "BORROWED" ? "secondary" : "default"}
                         size="sm"
                         className={`ml-2 ${b.status === "BORROWED" ? "bg-amber-500 text-white hover:bg-amber-600" : ""}`}
-                        disabled={b.status === "REMOVED" || borrowingId === b.id}
+                        disabled={b.status === "REMOVED" || borrowingId === b.id || activeBorrowedBookIds.has(Number(b.id))}
                         onClick={() => showBookDetail(b)}
                       >
                         <BookPlus className="mr-1 h-4 w-4" />
-                        {b.status === "AVAILABLE" ? "借閱" : b.status === "BORROWED" ? "預約" : "不可借"}
+                        {activeBorrowedBookIds.has(Number(b.id)) ? "已借閱" : b.status === "AVAILABLE" ? "借閱" : b.status === "BORROWED" ? "預約" : "不可借"}
                       </Button>
                     </TableCell>
                   </TableRow>
