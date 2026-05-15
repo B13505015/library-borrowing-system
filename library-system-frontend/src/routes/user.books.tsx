@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAsync } from "@/hooks/useAsync";
-import { searchBooks, getBookBorrowHistory } from "@/services/bookService";
+import { searchBooks, getBookBorrowHistory, getReservationInfo, type ReservationInfo } from "@/services/bookService";
 import { borrowBook } from "@/services/borrowService";
 import { reserveBook } from "@/services/reservationService";
 import { addFavorite, getMyFavoriteBookIds, removeFavorite } from "@/services/favoriteService";
@@ -49,6 +49,7 @@ function SearchBooksPage() {
   const [borrowDays, setBorrowDays] = useState<1 | 3 | 7 | 14>(7);
   const [history, setHistory] = useState<BorrowRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [reservationInfo, setReservationInfo] = useState<ReservationInfo | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
 
   const { data, loading, error, refetch } = useAsync(
@@ -84,7 +85,12 @@ function SearchBooksPage() {
           ? `已成功借閱《${book.title}》${borrowDays} 天`
           : `《${book.title}》目前借出中，已送出預約申請`,
       );
-      setDetail(null);
+      if (book.status === "BORROWED") {
+        const reservationRes = await getReservationInfo(book.id, user.userId);
+        setReservationInfo(reservationRes.data);
+      } else {
+        setDetail(null);
+      }
       setBorrowDays(7);
       setHistory([]);
       refetch();
@@ -119,15 +125,23 @@ function SearchBooksPage() {
     }
   };
 
+  const userAlreadyBorrowingDetail = !!(detail && user && history.some((r) => r.studentId === user.studentId && r.status !== "RETURNED"));
+  const alreadyQueuedDetail = !!reservationInfo?.myQueuePosition;
+
   const showBookDetail = async (book: Book) => {
     setBorrowDays(user?.level === "VIP" ? 14 : 7);
     setDetail(book);
     setHistory([]);
     setHistoryLoading(true);
+    setReservationInfo(null);
 
     try {
       const res = await getBookBorrowHistory(book.id);
       setHistory(res.data);
+      if (book.status === "BORROWED" && user) {
+        const reservationRes = await getReservationInfo(book.id, user.userId);
+        setReservationInfo(reservationRes.data);
+      }
     } catch {
       setHistory([]);
     } finally {
@@ -243,6 +257,15 @@ function SearchBooksPage() {
                   </div>
                 </dl>
 
+                {detail.status === "BORROWED" && reservationInfo && (
+                  <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                    目前預約人數：{reservationInfo.waitingCount} 人
+                    {reservationInfo.myQueuePosition
+                      ? `｜你是第 ${reservationInfo.myQueuePosition} 位（已預約）`
+                      : "｜你尚未在預約隊列"}
+                  </div>
+                )}
+
                 <div className="mt-4">
                   <label className="mb-2 block text-sm font-medium">租借期限</label>
                   <select
@@ -308,13 +331,13 @@ function SearchBooksPage() {
                   <Button variant="outline" onClick={() => setDetail(null)}>
                     關閉
                   </Button>
-                  <Button disabled={detail.status === "REMOVED" || borrowingId === detail.id} onClick={() => handleBorrow(detail)}>
+                  <Button disabled={detail.status === "REMOVED" || borrowingId === detail.id || userAlreadyBorrowingDetail || alreadyQueuedDetail} onClick={() => handleBorrow(detail)}>
                     {borrowingId === detail.id ? (
                       <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                     ) : (
                       <BookPlus className="mr-1 h-4 w-4" />
                     )}
-                    {detail.status === "AVAILABLE" ? "借閱此書" : detail.status === "BORROWED" ? "預約此書" : "此書不可借"}
+                    {userAlreadyBorrowingDetail ? "你已借閱此書" : alreadyQueuedDetail ? "已在預約隊列" : detail.status === "AVAILABLE" ? "借閱此書" : detail.status === "BORROWED" ? "預約此書" : "此書不可借"}
                   </Button>
                 </DialogFooter>
               </div>
