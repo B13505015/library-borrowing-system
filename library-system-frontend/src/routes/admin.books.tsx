@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Plus, Pencil, Trash2, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -64,14 +64,48 @@ function AdminBooksPage() {
     [keyword],
   );
 
+  const dedupedBooks = useMemo(() => {
+    const books = data ?? [];
+    const map = new Map<string, Book>();
+
+    for (const book of books) {
+      const existing = map.get(book.title);
+      if (!existing) {
+        map.set(book.title, book);
+        continue;
+      }
+
+      if (existing.status !== "AVAILABLE" && book.status === "AVAILABLE") {
+        map.set(book.title, book);
+        continue;
+      }
+
+      if (existing.status === "REMOVED" && book.status !== "REMOVED") {
+        map.set(book.title, book);
+      }
+    }
+
+    return Array.from(map.values());
+  }, [data]);
+
   const showBookDetail = async (book: Book) => {
     setDetail(book);
     setHistory([]);
     setHistoryLoading(true);
 
     try {
-      const res = await getBookBorrowHistory(book.id);
-      setHistory(res.data);
+      const sameTitleBooks = (data ?? []).filter((b) => b.title === book.title);
+      const historyResponses = await Promise.all(
+        sameTitleBooks.map((b) => getBookBorrowHistory(b.id).catch(() => null)),
+      );
+      const mergedHistory = historyResponses
+        .flatMap((res) => res?.data ?? [])
+        .reduce<BorrowRecord[]>((acc, record) => {
+          if (!acc.some((item) => item.id === record.id)) acc.push(record);
+          return acc;
+        }, [])
+        .sort((a, b) => new Date(b.borrowDate).getTime() - new Date(a.borrowDate).getTime());
+      setHistory(mergedHistory);
     } catch {
       setHistory([]);
     } finally {
@@ -116,7 +150,7 @@ function AdminBooksPage() {
             <LoadingState />
           ) : error ? (
             <ErrorState message={error} onRetry={refetch} />
-          ) : !data || data.length === 0 ? (
+          ) : dedupedBooks.length === 0 ? (
             <EmptyState title="找不到符合的書籍" />
           ) : (
             <Table>
@@ -132,7 +166,7 @@ function AdminBooksPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((b) => (
+                {dedupedBooks.map((b) => (
                   <TableRow key={b.id}>
                     <TableCell className="font-mono text-xs">{b.id}</TableCell>
                     <TableCell className="font-medium">{b.title}</TableCell>

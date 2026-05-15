@@ -27,6 +27,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import library_api.dto.EditBookRequest;
 import library_api.dto.PopularBookResponse;
+import library_api.dto.ReservationInfoResponse;
+import com.yourteam.library.repository.ReservationRepository;
 
 @RestController
 @RequestMapping("/api/books")
@@ -35,10 +37,12 @@ public class BookController {
 
     private final BookService bookService;
     private final BookRepository bookRepository;
+    private final ReservationRepository reservationRepository;
 
     public BookController() {
         this.bookService = new BookService();
         this.bookRepository = new BookRepository();
+        this.reservationRepository = new ReservationRepository();
     }
 
     // 查詢全部書籍
@@ -69,6 +73,17 @@ public class BookController {
         return new ApiResponse<>(true, list, "查詢熱門書籍成功");
     }
 
+
+
+    @GetMapping("/{bookId}/reservation-info")
+    public ApiResponse<ReservationInfoResponse> getReservationInfo(
+            @PathVariable int bookId,
+            @RequestParam(required = false) Integer userId) {
+        int waitingCount = reservationRepository.countWaitingReservations(bookId);
+        Integer myQueuePosition = userId == null ? null : reservationRepository.findUserQueuePosition(userId, bookId);
+        ReservationInfoResponse response = new ReservationInfoResponse(waitingCount, myQueuePosition);
+        return new ApiResponse<>(true, response, "查詢預約資訊成功");
+    }
     // 把 Book entity 轉成 BookResponse DTO
     private List<BookResponse> convertToBookResponseList(List<Book> books) {
         List<BookResponse> responseList = new ArrayList<>();

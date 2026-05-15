@@ -43,4 +43,34 @@ public class ReservationRepository {
         return false;
     }
 
+
+    public int countWaitingReservations(int bookId) {
+        String sql = "SELECT COUNT(*) AS c FROM reservations WHERE book_id = ? AND status = 'WAITING'";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, bookId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getInt("c");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    public Integer findUserQueuePosition(int userId, int bookId) {
+        String sql = "SELECT user_id FROM reservations WHERE book_id = ? AND status = 'WAITING' ORDER BY queue_priority DESC, created_at ASC";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, bookId);
+            ResultSet rs = pstmt.executeQuery();
+            int position = 0;
+            while (rs.next()) {
+                position++;
+                if (rs.getInt("user_id") == userId) {
+                    return position;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
 }
