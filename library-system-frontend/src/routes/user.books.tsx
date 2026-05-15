@@ -27,8 +27,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAsync } from "@/hooks/useAsync";
-import { searchBooks, getBookBorrowHistory } from "@/services/bookService";
-import { borrowBook } from "@/services/borrowService";
+import { searchBooks, getBookBorrowHistory, getReservationInfo, type ReservationInfo } from "@/services/bookService";
+import { borrowBook, getMyBorrowRecords } from "@/services/borrowService";
+import { reserveBook } from "@/services/reservationService";
 import { addFavorite, getMyFavoriteBookIds, removeFavorite } from "@/services/favoriteService";
 import { useAuth } from "@/context/AuthContext";
 import type { Book } from "@/types/book";
@@ -48,7 +49,9 @@ function SearchBooksPage() {
   const [borrowDays, setBorrowDays] = useState<1 | 3 | 7 | 14>(7);
   const [history, setHistory] = useState<BorrowRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [reservationInfo, setReservationInfo] = useState<ReservationInfo | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
+  const [activeBorrowedBookIds, setActiveBorrowedBookIds] = useState<Set<number>>(new Set());
 
   const { data, loading, error, refetch } = useAsync(
     () => searchBooks(keyword).then((r) => r.data),
@@ -65,7 +68,16 @@ function SearchBooksPage() {
         setFavoriteIds(new Set(res.data));
       } catch {}
     };
+    const loadMyActiveBorrows = async () => {
+      if (!user) return;
+      try {
+        const res = await getMyBorrowRecords(user.studentId);
+        const ids = new Set((res.data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId)).filter((v) => Number.isFinite(v)));
+        setActiveBorrowedBookIds(ids);
+      } catch {}
+    };
     loadFavorites();
+    loadMyActiveBorrows();
   }, [user]);
 
   const handleBorrow = async (book: Book) => {
@@ -73,16 +85,32 @@ function SearchBooksPage() {
     setBorrowingId(book.id);
 
     try {
-      await borrowBook(user.userId, Number(book.id), borrowDays);
+      if (book.status === "BORROWED") {
+        await reserveBook(user.userId, Number(book.id));
+      } else {
+        await borrowBook(user.userId, Number(book.id), borrowDays);
+      }
       toast.success(
         book.status === "AVAILABLE"
           ? `已成功借閱《${book.title}》${borrowDays} 天`
           : `《${book.title}》目前借出中，已送出預約申請`,
       );
-      setDetail(null);
+      if (book.status === "BORROWED") {
+        const [reservationRes, historyRes] = await Promise.all([
+          getReservationInfo(book.id, user.userId),
+          getBookBorrowHistory(book.id),
+        ]);
+        setReservationInfo(reservationRes.data);
+        setHistory(historyRes.data);
+      } else {
+        setDetail(null);
+      }
       setBorrowDays(7);
       setHistory([]);
       refetch();
+      const myRes = await getMyBorrowRecords(user.studentId);
+      const ids = new Set((myRes.data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId)).filter((v) => Number.isFinite(v)));
+      setActiveBorrowedBookIds(ids);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "借閱失敗");
     } finally {
@@ -114,15 +142,23 @@ function SearchBooksPage() {
     }
   };
 
+  const userAlreadyBorrowingDetail = !!reservationInfo?.alreadyBorrowing;
+  const alreadyQueuedDetail = reservationInfo?.myQueuePosition != null;
+
   const showBookDetail = async (book: Book) => {
     setBorrowDays(user?.level === "VIP" ? 14 : 7);
     setDetail(book);
     setHistory([]);
     setHistoryLoading(true);
+    setReservationInfo(null);
 
     try {
       const res = await getBookBorrowHistory(book.id);
       setHistory(res.data);
+      if (book.status === "BORROWED" && user) {
+        const reservationRes = await getReservationInfo(book.id, user.userId);
+        setReservationInfo(reservationRes.data);
+      }
     } catch {
       setHistory([]);
     } finally {
@@ -189,11 +225,11 @@ function SearchBooksPage() {
                         variant={b.status === "BORROWED" ? "secondary" : "default"}
                         size="sm"
                         className={`ml-2 ${b.status === "BORROWED" ? "bg-amber-500 text-white hover:bg-amber-600" : ""}`}
-                        disabled={b.status === "REMOVED" || borrowingId === b.id}
+                        disabled={b.status === "REMOVED" || borrowingId === b.id || activeBorrowedBookIds.has(Number(b.id))}
                         onClick={() => showBookDetail(b)}
                       >
                         <BookPlus className="mr-1 h-4 w-4" />
-                        {b.status === "AVAILABLE" ? "借閱" : b.status === "BORROWED" ? "預約" : "不可借"}
+                        {activeBorrowedBookIds.has(Number(b.id)) ? "已借閱" : b.status === "AVAILABLE" ? "借閱" : b.status === "BORROWED" ? "預約" : "不可借"}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -237,6 +273,15 @@ function SearchBooksPage() {
                     <dd className="mt-1">{detail.note || "—"}</dd>
                   </div>
                 </dl>
+
+                {detail.status === "BORROWED" && reservationInfo && (
+                  <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                    目前預約人數：{reservationInfo.waitingCount} 人
+                    {reservationInfo.myQueuePosition
+                      ? `｜你是第 ${reservationInfo.myQueuePosition} 位（已預約）`
+                      : "｜你尚未在預約隊列"}
+                  </div>
+                )}
 
                 <div className="mt-4">
                   <label className="mb-2 block text-sm font-medium">租借期限</label>
@@ -299,17 +344,22 @@ function SearchBooksPage() {
               </div>
 
               <div className="border-t bg-background px-6 py-4">
+                {(userAlreadyBorrowingDetail || alreadyQueuedDetail) && (
+                  <p className="mb-2 text-sm font-medium text-amber-700">
+                    {userAlreadyBorrowingDetail ? "你已借閱此書，無法再次預約" : "你已在預約隊列中"}
+                  </p>
+                )}
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setDetail(null)}>
                     關閉
                   </Button>
-                  <Button disabled={detail.status === "REMOVED" || borrowingId === detail.id} onClick={() => handleBorrow(detail)}>
+                  <Button disabled={detail.status === "REMOVED" || borrowingId === detail.id || userAlreadyBorrowingDetail || alreadyQueuedDetail} onClick={() => handleBorrow(detail)}>
                     {borrowingId === detail.id ? (
                       <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                     ) : (
                       <BookPlus className="mr-1 h-4 w-4" />
                     )}
-                    {detail.status === "AVAILABLE" ? "借閱此書" : detail.status === "BORROWED" ? "預約此書" : "此書不可借"}
+                    {userAlreadyBorrowingDetail ? "你已借閱此書" : alreadyQueuedDetail ? "已在預約隊列" : detail.status === "AVAILABLE" ? "借閱此書" : detail.status === "BORROWED" ? "預約此書" : "此書不可借"}
                   </Button>
                 </DialogFooter>
               </div>

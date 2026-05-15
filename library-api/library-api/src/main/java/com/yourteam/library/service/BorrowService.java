@@ -79,7 +79,10 @@ public class BorrowService {
         if (!"AVAILABLE".equalsIgnoreCase(book.getStatus())) {
             int priority = "VIP".equalsIgnoreCase(user.getRoleLevel()) ? 10 : 1;
             boolean reserved = reservationRepository.createReservation(userId, bookId, priority);
-            return reserved ? "BOOK_RESERVED" : "BOOK_NOT_AVAILABLE";
+            if (reserved || reservationRepository.hasActiveReservationByTitle(userId, bookId)) {
+                return "BOOK_RESERVED";
+            }
+            return "BOOK_NOT_AVAILABLE";
         }
 
         // 建立借書時間與到期時間
