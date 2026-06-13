@@ -27,14 +27,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAsync } from "@/hooks/useAsync";
-import { searchBooks, getBookBorrowHistory, getReservationInfo, type ReservationInfo } from "@/services/bookService";
+import { searchBooks, getBookBorrowHistory, getReservationInfo, getMyReservations, type MyReservation, type ReservationInfo } from "@/services/bookService";
 import { borrowBook, getMyBorrowRecords } from "@/services/borrowService";
-import { reserveBook } from "@/services/reservationService";
+import { fulfillReservation, reserveBook } from "@/services/reservationService";
 import { addFavorite, getMyFavoriteBookIds, removeFavorite } from "@/services/favoriteService";
 import { useAuth } from "@/context/AuthContext";
 import type { Book } from "@/types/book";
 import type { BorrowRecord } from "@/types/borrowRecord";
 import { formatDate } from "@/lib/format";
+import { bookActionClass, getBookAction } from "@/lib/bookAction";
 
 export const Route = createFileRoute("/user/books")({
   head: () => ({ meta: [{ title: "查詢書籍 — 圖書館借還書系統" }] }),
@@ -52,6 +53,7 @@ function SearchBooksPage() {
   const [reservationInfo, setReservationInfo] = useState<ReservationInfo | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
   const [activeBorrowedBookIds, setActiveBorrowedBookIds] = useState<Set<number>>(new Set());
+  const [reservationsByBookId, setReservationsByBookId] = useState<Map<number, MyReservation>>(new Map());
 
   const { data, loading, error, refetch } = useAsync(
     () => searchBooks(keyword).then((r) => r.data),
@@ -76,8 +78,16 @@ function SearchBooksPage() {
         setActiveBorrowedBookIds(ids);
       } catch {}
     };
+    const loadMyReservations = async () => {
+      if (!user) return;
+      try {
+        const res = await getMyReservations(user.userId);
+        setReservationsByBookId(new Map(res.data.map((r) => [r.bookId, r])));
+      } catch {}
+    };
     loadFavorites();
     loadMyActiveBorrows();
+    loadMyReservations();
   }, [user]);
 
   const handleBorrow = async (book: Book) => {
@@ -85,13 +95,16 @@ function SearchBooksPage() {
     setBorrowingId(book.id);
 
     try {
-      if (book.status === "BORROWED") {
+      const reservation = reservationsByBookId.get(Number(book.id));
+      if (reservation?.status === "NOTIFIED") {
+        await fulfillReservation(user.userId, reservation.reservationId, borrowDays);
+      } else if (book.status === "BORROWED") {
         await reserveBook(user.userId, Number(book.id));
       } else {
         await borrowBook(user.userId, Number(book.id), borrowDays);
       }
       toast.success(
-        book.status === "AVAILABLE"
+        reservation?.status === "NOTIFIED" || book.status === "AVAILABLE"
           ? `已成功借閱《${book.title}》${borrowDays} 天`
           : `《${book.title}》目前借出中，已送出預約申請`,
       );
@@ -111,6 +124,8 @@ function SearchBooksPage() {
       const myRes = await getMyBorrowRecords(user.studentId);
       const ids = new Set((myRes.data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId)).filter((v) => Number.isFinite(v)));
       setActiveBorrowedBookIds(ids);
+      const reservationRes = await getMyReservations(user.userId);
+      setReservationsByBookId(new Map(reservationRes.data.map((r) => [r.bookId, r])));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "借閱失敗");
     } finally {
@@ -143,7 +158,7 @@ function SearchBooksPage() {
   };
 
   const userAlreadyBorrowingDetail = !!reservationInfo?.alreadyBorrowing;
-  const alreadyQueuedDetail = reservationInfo?.myQueuePosition != null;
+  const detailReservationStatus = reservationInfo?.activeReservationStatus;
 
   const showBookDetail = async (book: Book) => {
     setBorrowDays(user?.level === "VIP" ? 14 : 7);
@@ -155,7 +170,7 @@ function SearchBooksPage() {
     try {
       const res = await getBookBorrowHistory(book.id);
       setHistory(res.data);
-      if (book.status === "BORROWED" && user) {
+      if (user) {
         const reservationRes = await getReservationInfo(book.id, user.userId);
         setReservationInfo(reservationRes.data);
       }
@@ -201,7 +216,13 @@ function SearchBooksPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((b) => (
+                {data.map((b) => {
+                  const action = getBookAction(
+                    b.status,
+                    activeBorrowedBookIds.has(Number(b.id)),
+                    reservationsByBookId.get(Number(b.id))?.status,
+                  );
+                  return (
                   <TableRow key={b.id}>
                     <TableCell className="font-mono text-xs">{b.id}</TableCell>
                     <TableCell className="font-medium">{b.title}</TableCell>
@@ -222,18 +243,19 @@ function SearchBooksPage() {
                       </Button>
 
                       <Button
-                        variant={b.status === "BORROWED" ? "secondary" : "default"}
+                        variant={action.tone === "reserve" ? "secondary" : "default"}
                         size="sm"
-                        className={`ml-2 ${b.status === "BORROWED" ? "bg-amber-500 text-white hover:bg-amber-600" : ""}`}
-                        disabled={b.status === "REMOVED" || borrowingId === b.id || activeBorrowedBookIds.has(Number(b.id))}
+                        className={`ml-2 ${bookActionClass(action.tone)}`}
+                        disabled={action.disabled || borrowingId === b.id}
                         onClick={() => showBookDetail(b)}
                       >
                         <BookPlus className="mr-1 h-4 w-4" />
-                        {activeBorrowedBookIds.has(Number(b.id)) ? "已借閱" : b.status === "AVAILABLE" ? "借閱" : b.status === "BORROWED" ? "預約" : "不可借"}
+                        {action.label}
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -344,7 +366,7 @@ function SearchBooksPage() {
               </div>
 
               <div className="border-t bg-background px-6 py-4">
-                {(userAlreadyBorrowingDetail || alreadyQueuedDetail) && (
+                {(userAlreadyBorrowingDetail || detailReservationStatus === "WAITING") && (
                   <p className="mb-2 text-sm font-medium text-amber-700">
                     {userAlreadyBorrowingDetail ? "你已借閱此書，無法再次預約" : "你已在預約隊列中"}
                   </p>
@@ -353,14 +375,17 @@ function SearchBooksPage() {
                   <Button variant="outline" onClick={() => setDetail(null)}>
                     關閉
                   </Button>
-                  <Button disabled={detail.status === "REMOVED" || borrowingId === detail.id || userAlreadyBorrowingDetail || alreadyQueuedDetail} onClick={() => handleBorrow(detail)}>
+                  {(() => {
+                    const action = getBookAction(detail.status, userAlreadyBorrowingDetail, detailReservationStatus);
+                    return <Button className={bookActionClass(action.tone)} disabled={action.disabled || borrowingId === detail.id} onClick={() => handleBorrow(detail)}>
                     {borrowingId === detail.id ? (
                       <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                     ) : (
                       <BookPlus className="mr-1 h-4 w-4" />
                     )}
-                    {userAlreadyBorrowingDetail ? "你已借閱此書" : alreadyQueuedDetail ? "已在預約隊列" : detail.status === "AVAILABLE" ? "借閱此書" : detail.status === "BORROWED" ? "預約此書" : "此書不可借"}
-                  </Button>
+                    {action.label}
+                  </Button>;
+                  })()}
                 </DialogFooter>
               </div>
             </div>

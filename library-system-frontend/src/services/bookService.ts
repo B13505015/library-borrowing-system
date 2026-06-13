@@ -171,6 +171,7 @@ export type ReservationInfo = {
   myQueuePosition: number | null;
   alreadyBorrowing: boolean;
   alreadyReserved: boolean;
+  activeReservationStatus: "WAITING" | "NOTIFIED" | null;
 };
 
 export type MyReservation = {
