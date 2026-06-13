@@ -64,14 +64,7 @@ function SearchBooksPage() {
         setActiveBorrowedBookIds(getActiveBorrowedBookIds(res.data ?? [], books.data ?? []));
       } catch {}
     };
-    const loadMyReservations = async () => {
-      if (!user) return;
-      try {
-        const res = await getMyReservations(user.userId);
-        setReservationsByBookId(new Map(res.data.map((r) => [r.bookId, r])));
-      } catch {}
-    };
-    const loadMyReservations = async () => {
+    const loadReservationState = async () => {
       if (!user) return;
       try {
         const res = await getMyReservations(user.userId);
@@ -80,7 +73,7 @@ function SearchBooksPage() {
     };
     loadFavorites();
     loadMyActiveBorrows();
-    loadMyReservations();
+    loadReservationState();
   }, [user]);
 
   const toggleFavorite = async (book: Book) => {
