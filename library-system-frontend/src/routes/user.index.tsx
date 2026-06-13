@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BookOpen, BookPlus, ClipboardList, Heart, MessageSquare, Loader2 } from "lucide-react";
+import { BookOpen, BookPlus, ClipboardList, Heart, MessageSquare, Loader2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,14 @@ import { ErrorState } from "@/components/common/ErrorState";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { useAsync } from "@/hooks/useAsync";
 import { useAuth } from "@/context/AuthContext";
-import { borrowBook, getMyBorrowRecords } from "@/services/borrowService";
-import { getBookBorrowHistory, getPopularBooks, getReservationInfo, getReservationNotifications, getMyReservations, type ReservationInfo } from "@/services/bookService";
+import { getMyBorrowRecords } from "@/services/borrowService";
+import { getAllBooks, getPopularBooks, getReservationNotifications, getMyReservations } from "@/services/bookService";
 import { toast } from "sonner";
 import { formatDate, daysUntil, isDueSoon, dueSoonText } from "@/lib/format";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { bookActionClass, getBookAction } from "@/lib/bookAction";
+import { cancelReservation, fulfillReservation } from "@/services/reservationService";
 import type { Book } from "@/types/book";
-import type { BorrowRecord } from "@/types/borrowRecord";
+import { BookDetailDialog } from "@/components/books/BookDetailDialog";
 
 export const Route = createFileRoute("/user/")({ component: UserDashboardPage });
 type RankMode = "BORROW" | "RATING";
@@ -24,87 +25,91 @@ function UserDashboardPage() {
   const { user } = useAuth();
   const [rankMode, setRankMode] = useState<RankMode>("BORROW");
   const [detail, setDetail] = useState<Book | null>(null);
-  const [history, setHistory] = useState<BorrowRecord[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [borrowDays, setBorrowDays] = useState<1 | 3 | 7 | 14>(7);
-  const [borrowingId, setBorrowingId] = useState<string | null>(null);
-  const [reservationInfo, setReservationInfo] = useState<ReservationInfo | null>(null);
+  const [reservationActionId, setReservationActionId] = useState<number | null>(null);
 
   const { data, loading, error, refetch } = useAsync(() => getMyBorrowRecords(user!.studentId).then((r) => r.data), [user?.studentId]);
   const { data: rankedBooks, refetch: refetchRanked } = useAsync(() => getPopularBooks(rankMode === "BORROW" ? "borrow" : "rating", 20).then((r) => r.data), [rankMode]);
   const { data: reservationNotifications, refetch: refetchReservationNotifications } = useAsync(() => user ? getReservationNotifications(user.userId).then((r) => r.data) : Promise.resolve([]), [user?.userId]);
   const { data: myReservations, refetch: refetchMyReservations } = useAsync(() => user ? getMyReservations(user.userId).then((r) => r.data) : Promise.resolve([]), [user?.userId]);
 
-  const availableBorrowDays = user?.level === "VIP" ? [1, 3, 7, 14] : [1, 3, 7];
   const active = (data ?? []).filter((r) => r.status !== "RETURNED");
   const overdue = (data ?? []).filter((r) => r.status === "OVERDUE");
   const dueSoon = active.filter((r) => r.status !== "OVERDUE" && isDueSoon(r.dueDate));
   const activeBorrowedBookIds = new Set((data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId)).filter((v) => Number.isFinite(v)));
-  const notifiedReservations = (myReservations ?? []).filter((r) => r.status === "NOTIFIED");
+  const notifiedReservations = (myReservations ?? []).filter((r) =>
+    r.status === "NOTIFIED" && (!r.expiresAt || new Date(r.expiresAt).getTime() >= Date.now()),
+  );
   const waitingReservations = (myReservations ?? [])
     .filter((r) => r.status === "WAITING")
     .filter((r) => !notifiedReservations.some((n) => n.title === r.title));
 
   const popularBooks = useMemo(() => (rankedBooks ?? []).slice(0, 5), [rankedBooks]);
+  const reservationByBookId = new Map((myReservations ?? []).map((r) => [r.bookId, r]));
 
   const showPopularDetail = async (bookId: number, title: string, status: "AVAILABLE" | "BORROWED") => {
-    const selected = { id: String(bookId), title, publisher: "", publishYear: 0, edition: "", format: "", source: "", note: "", status } as Book;
-    setDetail(selected);
     setBorrowDays(user?.level === "VIP" ? 14 : 7);
-    setHistoryLoading(true);
-    setHistory([]);
-    setReservationInfo(null);
     try {
-      const [historyRes, reservationRes] = await Promise.all([
-        getBookBorrowHistory(selected.id),
-        getReservationInfo(selected.id, user?.userId),
-      ]);
-      setHistory(historyRes.data);
-      setReservationInfo(reservationRes.data);
-    } finally {
-      setHistoryLoading(false);
+      const books = await getAllBooks();
+      setDetail(books.data.find((book) => Number(book.id) === bookId) ?? {
+        id: String(bookId), title, publisher: "", publishYear: 0, edition: "", format: "", source: "", note: "", status,
+      } as Book);
+    } catch {
+      setDetail({ id: String(bookId), title, publisher: "", publishYear: 0, edition: "", format: "", source: "", note: "", status } as Book);
     }
   };
 
-  const handleBorrowFromDetail = async () => {
-    if (!user || !detail) return;
-    setBorrowingId(detail.id);
+  const refreshDashboard = () => Promise.all([
+    refetch(),
+    refetchRanked(),
+    refetchReservationNotifications(),
+    refetchMyReservations(),
+  ]);
+
+  const handleFulfillReservation = async (reservationId: number) => {
+    if (!user) return;
+    setReservationActionId(reservationId);
     try {
-      const response = await borrowBook(user.userId, Number(detail.id), borrowDays);
-      toast.success(response.message || "借閱/預約成功");
-      await Promise.all([refetch(), refetchRanked(), refetchReservationNotifications(), refetchMyReservations()]);
-      const refreshedPopular = await getPopularBooks(rankMode === "BORROW" ? "borrow" : "rating", 20);
-      const now = refreshedPopular.data.find((b) => b.title === detail.title);
-      if (now) setDetail({ ...detail, id: String(now.bookId), status: now.status });
-      const reservationRes = await getReservationInfo(now?.bookId ?? detail.id, user.userId);
-      setReservationInfo(reservationRes.data);
+      const response = await fulfillReservation(user.userId, reservationId, borrowDays);
+      toast.success(response.message || "借書成功");
+      await refreshDashboard();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "借閱失敗");
     } finally {
-      setBorrowingId(null);
+      setReservationActionId(null);
+    }
+  };
+
+  const handleCancelReservation = async (reservationId: number) => {
+    if (!user) return;
+    setReservationActionId(reservationId);
+    try {
+      const response = await cancelReservation(user.userId, reservationId);
+      toast.success(response.message || "已取消預約");
+      await Promise.all([refetchMyReservations(), refetchReservationNotifications()]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "取消預約失敗");
+    } finally {
+      setReservationActionId(null);
     }
   };
 
   return <>
     <PageHeader title={`歡迎回來，${user?.name ?? ""}`} description={`學號 ${user?.studentId}｜身分 ${user?.level === "VIP" ? "VIP 使用者" : "一般使用者"}`} />
-    <Card className="mb-4 border-amber-300 bg-amber-50"><CardContent className="p-4"><p className="mb-2 text-sm font-semibold text-amber-800">預約到書通知</p>{notifiedReservations.length > 0 ? notifiedReservations.map((r)=><p key={r.reservationId} className="text-sm text-amber-800">• 《{r.title}》可借閱，請於 {r.expiresAt ? formatDate(r.expiresAt) : "到期前"} 前借閱</p>) : <p className="text-sm text-amber-800/80">目前沒有可借閱的預約通知。</p>}</CardContent></Card>
-    <Card className="mb-4 border-blue-300 bg-blue-50"><CardContent className="p-4"><p className="mb-2 text-sm font-semibold text-blue-800">我的預約中書籍</p>{waitingReservations.length > 0 ? waitingReservations.map((r)=><p key={r.reservationId} className="text-sm text-blue-800">• 《{r.title}》預約中</p>) : <p className="text-sm text-blue-800/80">目前沒有預約中的書籍。</p>}</CardContent></Card>
+    <Card className="mb-4 border-amber-300 bg-amber-50"><CardContent className="p-4"><p className="mb-2 text-sm font-semibold text-amber-800">預約到書通知</p>{notifiedReservations.length > 0 ? <div className="space-y-2">{notifiedReservations.map((r)=><div key={r.reservationId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-white/60 p-3"><div><p className="text-sm font-medium text-amber-900">《{r.title}》可借閱</p><p className="text-xs text-amber-700">請於 {r.expiresAt ? formatDate(r.expiresAt) : "到期前"} 前借閱</p></div><Button className={bookActionClass("borrow")} disabled={reservationActionId===r.reservationId} onClick={()=>handleFulfillReservation(r.reservationId)}>{reservationActionId===r.reservationId?<Loader2 className="mr-1 h-4 w-4 animate-spin"/>:<BookPlus className="mr-1 h-4 w-4"/>}立即借閱</Button></div>)}</div> : <p className="text-sm text-amber-800/80">目前沒有可借閱的預約通知。</p>}</CardContent></Card>
+    <Card className="mb-4 border-blue-300 bg-blue-50"><CardContent className="p-4"><p className="mb-2 text-sm font-semibold text-blue-800">我的預約中書籍</p>{waitingReservations.length > 0 ? <div className="space-y-2">{waitingReservations.map((r)=><div key={r.reservationId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-blue-200 bg-white/60 p-3"><div><p className="text-sm font-medium text-blue-900">《{r.title}》</p><p className="text-xs text-blue-700">預約中{r.queuePosition ? `｜目前第 ${r.queuePosition} 位` : ""}</p></div><Button variant="outline" className={`${bookActionClass("disabled")} border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800`} disabled={reservationActionId===r.reservationId} onClick={()=>handleCancelReservation(r.reservationId)}>{reservationActionId===r.reservationId?<Loader2 className="mr-1 h-4 w-4 animate-spin"/>:<X className="mr-1 h-4 w-4"/>}取消預約</Button></div>)}</div> : <p className="text-sm text-blue-800/80">目前沒有預約中的書籍。</p>}</CardContent></Card>
 
     {loading ? <LoadingState /> : error ? <ErrorState message={error} onRetry={refetch} /> : <div className="grid gap-5 lg:grid-cols-3">
-      <Card className="lg:col-span-2"><CardContent className="p-6"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">借閱中的書籍</h2><Link to="/user/records" className="text-sm text-primary hover:underline">查看全部 →</Link></div>{active.length === 0 ? <div className="rounded-xl border border-dashed p-6 text-center"><p>目前沒有借閱中的書籍</p><Button asChild><Link to="/user/books">查詢書籍</Link></Button></div> : <ul className="divide-y">{active.slice(0,5).map((r)=><li key={r.id} className="flex items-center justify-between py-3"><div><p className="font-medium">{r.bookTitle}</p><p className="text-xs">借閱：{formatDate(r.borrowDate)} 到期：{formatDate(r.dueDate)} {r.status !== "OVERDUE" && `（剩 ${daysUntil(r.dueDate)} 天）`}</p></div><StatusBadge status={r.status} /></li>)}</ul>}</CardContent></Card>
+      <Card className="lg:col-span-2"><CardContent className="p-6"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">借閱中的書籍</h2><Link to="/user/records" className="text-sm text-primary hover:underline">查看全部 →</Link></div>{active.length === 0 ? <div className="rounded-xl border border-dashed p-6 text-center"><p>目前沒有借閱中的書籍</p><Button asChild><Link to="/user/books">查詢書籍</Link></Button></div> : <ul className="divide-y">{active.slice(0,5).map((r)=>{const remaining=daysUntil(r.dueDate); const isOverdue=r.status==="OVERDUE"||remaining<0; const soon=!isOverdue&&remaining<=3; return <li key={r.id} className="flex items-center justify-between gap-3 py-3"><div><p className="font-medium">{r.bookTitle}</p><p className="text-xs text-muted-foreground">借閱：{formatDate(r.borrowDate)}｜到期：{formatDate(r.dueDate)}</p><p className={`mt-1 text-xs font-medium ${isOverdue?"text-red-600":soon?"text-amber-600":"text-emerald-700"}`}>{isOverdue?`已逾期 ${Math.abs(remaining)} 天`:soon?`即將到期（${dueSoonText(r.dueDate)}）`:"尚未到期"}</p></div><StatusBadge status={isOverdue?"OVERDUE":r.status} /></li>})}</ul>}</CardContent></Card>
       <Card><CardContent className="p-6"><h2 className="mb-3 text-lg font-semibold">逾期 / 即將到期提醒</h2><div className="grid gap-3 md:grid-cols-2"><div className="rounded-md border border-red-300 bg-red-50 p-3"><p className="mb-2 text-sm font-semibold text-red-700">逾期提醒</p>{overdue.length===0?<p className="text-sm text-red-700/80">目前沒有逾期書籍。</p>:overdue.map((r)=><p key={r.id} className="text-sm text-red-700">{r.bookTitle}（已逾期 {Math.abs(daysUntil(r.dueDate))} 天）</p>)}</div><div className="rounded-md border border-yellow-300 bg-yellow-50 p-3"><p className="mb-2 text-sm font-semibold text-yellow-700">即將到期提醒</p>{dueSoon.length===0?<p className="text-sm text-yellow-700/80">目前沒有即將到期書籍。</p>:dueSoon.map((r)=><p key={r.id} className="text-sm text-yellow-700">{r.bookTitle}（{dueSoonText(r.dueDate)}）</p>)}</div></div></CardContent></Card>
-      <Card className="lg:col-span-3"><CardContent className="p-6"><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-semibold">熱門書籍</h2><div className="space-x-2"><Button size="sm" variant={rankMode==="BORROW"?"default":"outline"} onClick={()=>setRankMode("BORROW")}>借閱最多</Button><Button size="sm" variant={rankMode==="RATING"?"default":"outline"} onClick={()=>setRankMode("RATING")}>評論高分</Button></div></div><ul className="space-y-2">{popularBooks.map((b,idx)=><li key={b.title} className="flex items-center justify-between rounded border p-3 text-sm"><div><span className="mr-2 font-semibold">#{idx+1}</span>{b.title}<span className="ml-2 text-muted-foreground">借閱 {b.borrowCount} 次｜評分 {Number(b.avgRating).toFixed(1)}（{b.reviewCount} 筆）</span></div><Button size="sm" variant={b.status === "AVAILABLE" ? "default" : "secondary"} className={b.status === "AVAILABLE" ? "" : "bg-amber-500 text-white hover:bg-amber-600"} disabled={activeBorrowedBookIds.has(Number(b.bookId))} onClick={()=>showPopularDetail(b.bookId, b.title, b.status)}><BookPlus className="mr-1 h-4 w-4" />{activeBorrowedBookIds.has(Number(b.bookId)) ? "已借閱" : b.status === "AVAILABLE" ? "借閱" : "預約"}</Button></li>)}</ul>{popularBooks.length===0 && <p className="text-sm text-muted-foreground">目前查無熱門書籍資料，請先產生借閱/書評紀錄。</p>}</CardContent></Card>
+      <Card className="lg:col-span-3"><CardContent className="p-6"><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-semibold">熱門書籍</h2><div className="space-x-2"><Button size="sm" variant={rankMode==="BORROW"?"default":"outline"} onClick={()=>setRankMode("BORROW")}>借閱最多</Button><Button size="sm" variant={rankMode==="RATING"?"default":"outline"} onClick={()=>setRankMode("RATING")}>評論高分</Button></div></div><ul className="space-y-2">{popularBooks.map((b,idx)=>{const action=getBookAction(b.status,activeBorrowedBookIds.has(Number(b.bookId)),reservationByBookId.get(b.bookId)?.status); return <li key={b.title} className="flex flex-wrap items-center justify-between gap-3 rounded border p-3 text-sm"><div><span className="mr-2 font-semibold">#{idx+1}</span>{b.title}<span className="ml-2 text-muted-foreground">借閱 {b.borrowCount} 次｜評分 {Number(b.avgRating).toFixed(1)}（{b.reviewCount} 筆）</span></div><Button size="sm" variant={action.tone==="reserve"?"secondary":"default"} className={bookActionClass(action.tone)} disabled={action.disabled} onClick={()=>showPopularDetail(b.bookId,b.title,b.status)}><BookPlus className="mr-1 h-4 w-4"/>{action.label}</Button></li>})}</ul>{popularBooks.length===0 && <p className="text-sm text-muted-foreground">目前查無熱門書籍資料，請先產生借閱/書評紀錄。</p>}</CardContent></Card>
       <QuickAction to="/user/books" icon={BookOpen} title="查詢書籍" desc="搜尋館藏並借閱" />
       <QuickAction to="/user/records" icon={ClipboardList} title="我的借閱紀錄" desc="查看與歸還" />
       <QuickAction to="/user/favorites" icon={Heart} title="我的收藏" desc="查看收藏書單" />
       <QuickAction to="/user/reviews" icon={MessageSquare} title="書評專區" desc="查看與撰寫書評" />
     </div>}
 
-    <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-      <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden p-0">
-        {detail && <div className="flex max-h-[85vh] flex-col"><div className="border-b bg-background px-6 py-4"><DialogHeader><DialogTitle>{detail.title}</DialogTitle><DialogDescription>編號 {detail.id}</DialogDescription></DialogHeader></div><div className="flex-1 overflow-y-auto px-6 py-4"><p className="text-sm">狀態：<StatusBadge status={detail.status} /></p><div className="mt-3"><label className="mb-2 block text-sm font-medium">租借期限</label><select value={borrowDays} onChange={(e)=>setBorrowDays(Number(e.target.value) as 1|3|7|14)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">{availableBorrowDays.map((d)=><option key={d} value={d}>{d} 天</option>)}</select></div>{detail.status === "BORROWED" && reservationInfo && <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">目前預約人數：{reservationInfo.waitingCount} 人{reservationInfo.myQueuePosition ? `｜你是第 ${reservationInfo.myQueuePosition} 位` : "｜你尚未在預約隊列"}</div>}<div className="mt-4"><h3 className="mb-2 text-sm font-semibold">近期借還紀錄</h3>{historyLoading ? <p className="text-sm text-muted-foreground">載入中...</p> : history.length===0 ? <p className="text-sm text-muted-foreground">目前沒有借還紀錄。</p> : <div className="max-h-64 overflow-y-auto rounded-md border"><table className="w-full text-sm"><tbody>{history.map((r)=><tr key={r.id} className="border-t"><td className="px-3 py-2">{r.studentName}</td><td className="px-3 py-2">{formatDate(r.borrowDate)}</td><td className="px-3 py-2"><StatusBadge status={r.status} /></td></tr>)}</tbody></table></div>}</div></div><div className="border-t bg-background px-6 py-4"><DialogFooter><Button variant="outline" onClick={()=>setDetail(null)}>關閉</Button><Button disabled={detail.status==="REMOVED" || borrowingId===detail.id || !!reservationInfo?.alreadyBorrowing || reservationInfo?.myQueuePosition != null} onClick={handleBorrowFromDetail}>{borrowingId===detail.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin"/> : <BookPlus className="mr-1 h-4 w-4"/>}{reservationInfo?.alreadyBorrowing ? "你已借閱此書" : reservationInfo?.myQueuePosition != null || reservationInfo?.alreadyReserved ? "已在預約隊列" : detail.status === "AVAILABLE" ? "借閱此書" : detail.status === "BORROWED" ? "預約此書" : "此書不可借"}</Button></DialogFooter></div></div>}
-      </DialogContent>
-    </Dialog>
+    <BookDetailDialog book={detail} user={user} open={!!detail} onOpenChange={(open)=>!open&&setDetail(null)} onUpdated={refreshDashboard} />
   </>;
 }
 
