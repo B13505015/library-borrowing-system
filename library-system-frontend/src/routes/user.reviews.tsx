@@ -71,7 +71,10 @@ function Page() {
   const pickBook = async (id: string) => {
     const book = borrowedBooks.find((b) => String(b.id) === id) ?? null;
     setSelected(book);
-    if (!book) return;
+    if (!book) {
+      setReviews([]);
+      return;
+    }
     setReviews((await getBookReviews(Number(book.id))).data ?? []);
   };
 
@@ -99,30 +102,58 @@ function Page() {
   };
 
 
-  return <><PageHeader title="書評專區" description="選擇借閱過的書，查看與撰寫書評" />
-    <Card className="mb-4"><CardContent className="space-y-3 p-4">
-      <select
-        value={selected?.id ?? ""}
-        onChange={(e) => pickBook(e.target.value)}
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        disabled={borrowedBooks.length === 0}
-      >
-        <option value="">請選擇借閱過的書籍</option>
-        {borrowedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
-      </select>
-      {borrowedBooks.length === 0 && (
-        <p className="text-sm text-muted-foreground">目前沒有借閱過的書籍可評論，請先借書後再來發表書評。</p>
-      )}
-      <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="查詢書籍評論（人名、書籍或評論關鍵字）" />
-    </CardContent></Card>
+  const hasQuery = !!query.trim();
+  const emptyMessage = hasQuery
+    ? "找不到符合關鍵字的書評。"
+    : selected
+      ? "這本書目前尚無評論，成為第一位評論者。"
+      : "目前尚無書評";
 
-    <Card><CardContent className="space-y-3 p-4">
-      <div className="flex gap-1">{[1,2,3,4,5].map((n)=><button key={n} onClick={()=>setRating(n)}><Star className={`h-6 w-6 ${n<=rating?"fill-yellow-400 text-yellow-400":"text-muted-foreground"}`} /></button>)}</div>
-      <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="評論內容" />
-      <div className="flex gap-2">
-        <Button onClick={submit} disabled={!selected || !comment.trim()}>送出書評</Button>
-              </div>
-      {isLoadingAllReviews && query.trim() && <p className="text-sm text-muted-foreground">正在載入全書庫書評…</p>}
-      {filteredReviews.map((item, i) => <p key={`${item.bookId}-${i}`} className="text-sm">[{item.bookTitle}] {item.review}</p>)}
-    </CardContent></Card></>;
+  return <><PageHeader title="書評專區" description="選擇借閱過的書，查看與撰寫書評" />
+    <div className="space-y-6">
+      <Card className="border-blue-100 bg-blue-50/30 shadow-sm"><CardContent className="space-y-4 p-5">
+        <div>
+          <h2 className="text-lg font-semibold">撰寫書評</h2>
+          <p className="mt-1 text-sm text-muted-foreground">請先選擇你借閱過的書籍，再留下評分與評論</p>
+        </div>
+        <select
+          value={selected?.id ?? ""}
+          onChange={(e) => pickBook(e.target.value)}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          disabled={borrowedBooks.length === 0}
+        >
+          <option value="">請選擇借閱過的書籍</option>
+          {borrowedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
+        </select>
+        {borrowedBooks.length === 0 && (
+          <p className="text-sm text-muted-foreground">目前沒有借閱過的書籍可評論，請先借書後再來發表書評。</p>
+        )}
+        <div>
+          <p className="mb-2 text-sm font-medium">星等評分</p>
+          <div className="flex gap-1">{[1,2,3,4,5].map((n)=><button type="button" key={n} onClick={()=>setRating(n)} aria-label={`${n} 星`}><Star className={`h-6 w-6 ${n<=rating?"fill-yellow-400 text-yellow-400":"text-muted-foreground"}`} /></button>)}</div>
+        </div>
+        <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="評論內容" />
+        <Button
+          className="h-9 px-4 disabled:border disabled:border-gray-300 disabled:bg-gray-200 disabled:text-gray-500 disabled:opacity-100 disabled:shadow-none"
+          onClick={submit}
+          disabled={!selected || !comment.trim()}
+        >
+          送出書評
+        </Button>
+      </CardContent></Card>
+
+      <Card className="border-blue-100 bg-blue-50/30 shadow-sm"><CardContent className="space-y-4 p-5">
+        <div>
+          <h2 className="text-lg font-semibold">查詢書評</h2>
+          <p className="mt-1 text-sm text-muted-foreground">可依人名、書名或評論內容搜尋</p>
+        </div>
+        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜尋人名、書名或評論關鍵字" />
+        <div className="space-y-2">
+          {isLoadingAllReviews && hasQuery && <p className="text-sm text-muted-foreground">正在載入全書庫書評…</p>}
+          {!isLoadingAllReviews && filteredReviews.length === 0 && <p className="rounded-md border border-dashed bg-background/70 p-4 text-sm text-muted-foreground">{emptyMessage}</p>}
+          {filteredReviews.map((item, i) => <p key={`${item.bookId}-${i}`} className="rounded-md border bg-background/80 p-3 text-sm">[{item.bookTitle}] {item.review}</p>)}
+        </div>
+      </CardContent></Card>
+    </div>
+  </>;
 }

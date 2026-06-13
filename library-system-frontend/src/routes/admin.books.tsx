@@ -156,7 +156,7 @@ function AdminBooksPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">編號</TableHead>
+                  <TableHead className="w-[100px]">序號</TableHead>
                   <TableHead>書名</TableHead>
                   <TableHead>出版社</TableHead>
                   <TableHead className="w-[100px]">出版年</TableHead>
@@ -166,9 +166,9 @@ function AdminBooksPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dedupedBooks.map((b) => (
+                {dedupedBooks.map((b, index) => (
                   <TableRow key={b.id}>
-                    <TableCell className="font-mono text-xs">{b.id}</TableCell>
+                    <TableCell className="font-mono text-xs">{index + 1}</TableCell>
                     <TableCell className="font-medium">{b.title}</TableCell>
                     <TableCell>{b.publisher}</TableCell>
                     <TableCell>{b.publishYear}</TableCell>
@@ -253,7 +253,7 @@ function AdminBooksPage() {
               <div className="flex-1 overflow-y-auto px-6 py-4">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                   <div>
-                    <p className="text-xs text-muted-foreground">編號</p>
+                    <p className="text-xs text-muted-foreground">館藏 ID</p>
                     <p className="mt-1">{detail.id}</p>
                   </div>
                   <div>

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { formatDate } from "@/lib/format";
 import { useAsync } from "@/hooks/useAsync";
 import { searchUsers, handleSuspendUser, handleActivateUser, getUserDetail, type AdminUserDetail } from "@/services/adminService";
 
@@ -121,13 +122,48 @@ function AdminUsersPage() {
         </CardContent>
       </Card>
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-5xl">
           <DialogHeader><DialogTitle>使用者詳情 {detail?.studentId}</DialogTitle></DialogHeader>
-          {detail && <div className="space-y-2 text-sm">
-            <p>姓名：{detail.name}</p><p>等級：{detail.level}</p><p>狀態：{detail.status}</p>
-            <p>收藏數：{detail.favoriteCount}｜書評數：{detail.reviewCount}</p>
+          {detail && <div className="space-y-4 text-sm">
+            <div className="grid gap-2 rounded-md bg-muted/40 p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <p>姓名：{detail.name}</p><p>等級：{detail.level}</p><p>狀態：{detail.status}</p>
+              <p>收藏數：{detail.favoriteCount}｜書評數：{detail.reviewCount}</p>
+            </div>
             <p className="font-medium">借閱紀錄（{detail.borrowRecords.length}）</p>
-            <div className="max-h-48 overflow-auto rounded border p-2">{detail.borrowRecords.map((r) => <p key={r.recordId}>#{r.recordId} 書籍{r.bookId} 借:{String(r.borrowDate).slice(0,10)} 到期:{String(r.dueDate).slice(0,10)}</p>)}</div>
+            {detail.borrowRecords.length === 0 ? (
+              <div className="rounded-md border border-dashed p-6 text-center text-muted-foreground">尚無借閱紀錄</div>
+            ) : (
+              <div className="max-h-[50vh] overflow-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>書名</TableHead>
+                      <TableHead>借閱日期</TableHead>
+                      <TableHead>到期日</TableHead>
+                      <TableHead>歸還日</TableHead>
+                      <TableHead>狀態</TableHead>
+                      <TableHead>逾期／罰款</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detail.borrowRecords.map((record) => (
+                      <TableRow key={record.recordId}>
+                        <TableCell className="font-medium">{record.bookTitle}</TableCell>
+                        <TableCell>{formatDate(record.borrowDate)}</TableCell>
+                        <TableCell>{formatDate(record.dueDate)}</TableCell>
+                        <TableCell>{record.returnDate ? formatDate(record.returnDate) : "尚未歸還"}</TableCell>
+                        <TableCell><StatusBadge status={record.status} /></TableCell>
+                        <TableCell>
+                          {record.overdueDays > 0
+                            ? `逾期 ${record.overdueDays} 天／NT$${Number(record.fineAmount).toFixed(0)}`
+                            : "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>}
         </DialogContent>
       </Dialog>
