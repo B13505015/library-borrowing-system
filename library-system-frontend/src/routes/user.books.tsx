@@ -71,6 +71,13 @@ function SearchBooksPage() {
         setReservationsByBookId(new Map(res.data.map((r) => [r.bookId, r])));
       } catch {}
     };
+    const loadMyReservations = async () => {
+      if (!user) return;
+      try {
+        const res = await getMyReservations(user.userId);
+        setReservationsByBookId(new Map(res.data.map((r) => [r.bookId, r])));
+      } catch {}
+    };
     loadFavorites();
     loadMyActiveBorrows();
     loadMyReservations();
