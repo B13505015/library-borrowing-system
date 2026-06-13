@@ -87,9 +87,10 @@ public class BookController {
         Integer myQueuePosition = userId == null ? null : reservationRepository.findUserQueuePosition(userId, bookId);
         boolean alreadyBorrowing = userId != null && borrowRecordRepository.hasActiveBorrowByUserAndBook(userId, bookId);
         String activeReservationStatus = userId == null ? null : reservationRepository.findActiveReservationStatus(userId, bookId);
+        Integer reservationId = userId == null ? null : reservationRepository.findActiveReservationId(userId, bookId);
         boolean alreadyReserved = activeReservationStatus != null;
         ReservationInfoResponse response = new ReservationInfoResponse(
-                waitingCount, myQueuePosition, alreadyBorrowing, alreadyReserved, activeReservationStatus);
+                waitingCount, myQueuePosition, alreadyBorrowing, alreadyReserved, activeReservationStatus, reservationId);
         return new ApiResponse<>(true, response, "查詢預約資訊成功");
     }
 

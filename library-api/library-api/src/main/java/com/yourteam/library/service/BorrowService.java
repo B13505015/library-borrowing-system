@@ -38,9 +38,7 @@ public class BorrowService {
             return "BORROW_LIMIT_REACHED";
         }
 
-        return reservationRepository.fulfillNotifiedReservation(reservationId, userId, borrowDays)
-                ? "BORROW_SUCCESS"
-                : "RESERVATION_NOT_AVAILABLE";
+        return reservationRepository.fulfillNotifiedReservation(reservationId, userId, borrowDays);
     }
 
     // 建構子（constructor）

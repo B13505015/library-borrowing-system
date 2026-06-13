@@ -62,8 +62,14 @@ public class ReservationController {
                 return new ApiResponse<>(false, null, "已達可同時借閱上限");
             case "BORROW_DAYS_NOT_ALLOWED":
                 return new ApiResponse<>(false, null, "此身分不可選擇該借閱天數");
+            case "RESERVATION_EXPIRED":
+                return new ApiResponse<>(false, null, "預約已過期");
+            case "BOOK_NOT_AVAILABLE":
+                return new ApiResponse<>(false, null, "書籍目前不可借");
+            case "RESERVATION_STATUS_CHANGED":
+                return new ApiResponse<>(false, null, "預約狀態已更新");
             default:
-                return new ApiResponse<>(false, null, "預約已失效、書籍不可借或狀態已更新");
+                return new ApiResponse<>(false, null, "借閱失敗");
         }
     }
 

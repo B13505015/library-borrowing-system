@@ -137,15 +137,30 @@ public class ReservationRepository {
     }
 
     public String findActiveReservationStatus(int userId, int bookId) {
-        String sql = "SELECT r.status FROM reservations r JOIN books b ON b.book_id = r.book_id "
-                + "WHERE b.title = (SELECT title FROM books WHERE book_id = ?) "
-                + "AND r.user_id = ? AND r.status IN ('WAITING','NOTIFIED') "
+        expireNotificationsAndNotifyNext();
+        String sql = "SELECT r.status FROM reservations r "
+                + "WHERE r.book_id = ? AND r.user_id = ? AND r.status IN ('WAITING','NOTIFIED') "
                 + "ORDER BY CASE r.status WHEN 'NOTIFIED' THEN 0 ELSE 1 END, r.created_at ASC LIMIT 1";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, bookId);
             pstmt.setInt(2, userId);
             ResultSet rs = pstmt.executeQuery();
             return rs.next() ? rs.getString("status") : null;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public Integer findActiveReservationId(int userId, int bookId) {
+        String sql = "SELECT reservation_id FROM reservations WHERE book_id = ? AND user_id = ? "
+                + "AND status IN ('WAITING','NOTIFIED') "
+                + "ORDER BY CASE status WHEN 'NOTIFIED' THEN 0 ELSE 1 END, created_at ASC LIMIT 1";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, bookId);
+            pstmt.setInt(2, userId);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? rs.getInt("reservation_id") : null;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -165,10 +180,10 @@ public class ReservationRepository {
         return false;
     }
 
-    public boolean fulfillNotifiedReservation(int reservationId, int userId, int borrowDays) {
-        String selectSql = "SELECT r.book_id FROM reservations r JOIN books b ON b.book_id = r.book_id "
-                + "WHERE r.reservation_id = ? AND r.user_id = ? AND r.status = 'NOTIFIED' "
-                + "AND (r.expires_at IS NULL OR r.expires_at >= NOW()) AND b.status = 'AVAILABLE' FOR UPDATE";
+    public String fulfillNotifiedReservation(int reservationId, int userId, int borrowDays) {
+        String selectSql = "SELECT r.book_id, r.status, r.expires_at, b.status AS book_status "
+                + "FROM reservations r JOIN books b ON b.book_id = r.book_id "
+                + "WHERE r.reservation_id = ? AND r.user_id = ? FOR UPDATE";
         String insertSql = "INSERT INTO borrow_records "
                 + "(user_id, book_id, borrow_date, due_date, return_date, borrow_days, created_at) "
                 + "VALUES (?, ?, ?, ?, NULL, ?, ?)";
@@ -186,9 +201,28 @@ public class ReservationRepository {
                     ResultSet rs = select.executeQuery();
                     if (!rs.next()) {
                         conn.rollback();
-                        return false;
+                        return "RESERVATION_STATUS_CHANGED";
                     }
                     bookId = rs.getInt("book_id");
+                    if (!"NOTIFIED".equalsIgnoreCase(rs.getString("status"))) {
+                        conn.rollback();
+                        return "RESERVATION_STATUS_CHANGED";
+                    }
+                    Timestamp expiresAt = rs.getTimestamp("expires_at");
+                    if (expiresAt != null && expiresAt.toLocalDateTime().isBefore(LocalDateTime.now())) {
+                        try (PreparedStatement expire = conn.prepareStatement(
+                                "UPDATE reservations SET status = 'EXPIRED' WHERE reservation_id = ? AND status = 'NOTIFIED'")) {
+                            expire.setInt(1, reservationId);
+                            expire.executeUpdate();
+                        }
+                        conn.commit();
+                        notifyNextReservation(bookId);
+                        return "RESERVATION_EXPIRED";
+                    }
+                    if (!"AVAILABLE".equalsIgnoreCase(rs.getString("book_status"))) {
+                        conn.rollback();
+                        return "BOOK_NOT_AVAILABLE";
+                    }
                 }
 
                 LocalDateTime now = LocalDateTime.now();
@@ -214,7 +248,7 @@ public class ReservationRepository {
                 }
 
                 conn.commit();
-                return true;
+                return "BORROW_SUCCESS";
             } catch (Exception e) {
                 conn.rollback();
                 e.printStackTrace();
@@ -224,11 +258,31 @@ public class ReservationRepository {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return false;
+        return "RESERVATION_STATUS_CHANGED";
     }
 
+    public void expireNotificationsAndNotifyNext() {
+        java.util.List<Integer> bookIds = new java.util.ArrayList<>();
+        String selectSql = "SELECT DISTINCT book_id FROM reservations "
+                + "WHERE status = 'NOTIFIED' AND expires_at IS NOT NULL AND expires_at < NOW()";
+        String updateSql = "UPDATE reservations SET status = 'EXPIRED' "
+                + "WHERE status = 'NOTIFIED' AND expires_at IS NOT NULL AND expires_at < NOW()";
+        try (Connection conn = DBConnection.getConnection()) {
+            try (PreparedStatement select = conn.prepareStatement(selectSql);
+                 ResultSet rs = select.executeQuery()) {
+                while (rs.next()) bookIds.add(rs.getInt("book_id"));
+            }
+            try (PreparedStatement update = conn.prepareStatement(updateSql)) {
+                update.executeUpdate();
+            }
+            for (int bookId : bookIds) notifyNextReservation(bookId);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     public java.util.List<library_api.dto.MyReservationResponse> findMyActiveReservations(int userId) {
+        expireNotificationsAndNotifyNext();
         java.util.List<library_api.dto.MyReservationResponse> list = new java.util.ArrayList<>();
         String sql = "SELECT r.reservation_id, r.book_id, COALESCE(r.reservation_title, b.title) AS title, r.status, r.queue_priority, r.created_at, r.notified_at, r.expires_at "
                 + "FROM reservations r JOIN books b ON b.book_id = r.book_id "

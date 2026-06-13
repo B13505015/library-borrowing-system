@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
-import { Eye, BookPlus, Loader2, Heart } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Eye, BookPlus, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SearchBar } from "@/components/common/SearchBar";
@@ -18,24 +18,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useAsync } from "@/hooks/useAsync";
-import { searchBooks, getBookBorrowHistory, getReservationInfo, getMyReservations, type MyReservation, type ReservationInfo } from "@/services/bookService";
-import { borrowBook, getMyBorrowRecords } from "@/services/borrowService";
-import { fulfillReservation, reserveBook } from "@/services/reservationService";
+import { searchBooks, getMyReservations, type MyReservation } from "@/services/bookService";
+import { getMyBorrowRecords } from "@/services/borrowService";
 import { addFavorite, getMyFavoriteBookIds, removeFavorite } from "@/services/favoriteService";
 import { useAuth } from "@/context/AuthContext";
 import type { Book } from "@/types/book";
-import type { BorrowRecord } from "@/types/borrowRecord";
-import { formatDate } from "@/lib/format";
 import { bookActionClass, getBookAction } from "@/lib/bookAction";
+import { BookDetailDialog } from "@/components/books/BookDetailDialog";
 
 export const Route = createFileRoute("/user/books")({
   head: () => ({ meta: [{ title: "查詢書籍 — 圖書館借還書系統" }] }),
@@ -46,11 +36,6 @@ function SearchBooksPage() {
   const { user } = useAuth();
   const [keyword, setKeyword] = useState("");
   const [detail, setDetail] = useState<Book | null>(null);
-  const [borrowingId, setBorrowingId] = useState<string | null>(null);
-  const [borrowDays, setBorrowDays] = useState<1 | 3 | 7 | 14>(7);
-  const [history, setHistory] = useState<BorrowRecord[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [reservationInfo, setReservationInfo] = useState<ReservationInfo | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
   const [activeBorrowedBookIds, setActiveBorrowedBookIds] = useState<Set<number>>(new Set());
   const [reservationsByBookId, setReservationsByBookId] = useState<Map<number, MyReservation>>(new Map());
@@ -59,8 +44,6 @@ function SearchBooksPage() {
     () => searchBooks(keyword).then((r) => r.data),
     [keyword],
   );
-
-  const availableBorrowDays = user?.level === "VIP" ? [1, 3, 7, 14] : [1, 3, 7];
 
   useEffect(() => {
     const loadFavorites = async () => {
@@ -90,51 +73,6 @@ function SearchBooksPage() {
     loadMyReservations();
   }, [user]);
 
-  const handleBorrow = async (book: Book) => {
-    if (!user) return;
-    setBorrowingId(book.id);
-
-    try {
-      const reservation = reservationsByBookId.get(Number(book.id));
-      if (reservation?.status === "NOTIFIED") {
-        await fulfillReservation(user.userId, reservation.reservationId, borrowDays);
-      } else if (book.status === "BORROWED") {
-        await reserveBook(user.userId, Number(book.id));
-      } else {
-        await borrowBook(user.userId, Number(book.id), borrowDays);
-      }
-      toast.success(
-        reservation?.status === "NOTIFIED" || book.status === "AVAILABLE"
-          ? `已成功借閱《${book.title}》${borrowDays} 天`
-          : `《${book.title}》目前借出中，已送出預約申請`,
-      );
-      if (book.status === "BORROWED") {
-        const [reservationRes, historyRes] = await Promise.all([
-          getReservationInfo(book.id, user.userId),
-          getBookBorrowHistory(book.id),
-        ]);
-        setReservationInfo(reservationRes.data);
-        setHistory(historyRes.data);
-      } else {
-        setDetail(null);
-      }
-      setBorrowDays(7);
-      setHistory([]);
-      refetch();
-      const myRes = await getMyBorrowRecords(user.studentId);
-      const ids = new Set((myRes.data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId)).filter((v) => Number.isFinite(v)));
-      setActiveBorrowedBookIds(ids);
-      const reservationRes = await getMyReservations(user.userId);
-      setReservationsByBookId(new Map(reservationRes.data.map((r) => [r.bookId, r])));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "借閱失敗");
-    } finally {
-      setBorrowingId(null);
-    }
-  };
-
-
-
   const toggleFavorite = async (book: Book) => {
     if (!user) return;
     const bookId = Number(book.id);
@@ -157,28 +95,15 @@ function SearchBooksPage() {
     }
   };
 
-  const userAlreadyBorrowingDetail = !!reservationInfo?.alreadyBorrowing;
-  const detailReservationStatus = reservationInfo?.activeReservationStatus;
-
-  const showBookDetail = async (book: Book) => {
-    setBorrowDays(user?.level === "VIP" ? 14 : 7);
-    setDetail(book);
-    setHistory([]);
-    setHistoryLoading(true);
-    setReservationInfo(null);
-
-    try {
-      const res = await getBookBorrowHistory(book.id);
-      setHistory(res.data);
-      if (user) {
-        const reservationRes = await getReservationInfo(book.id, user.userId);
-        setReservationInfo(reservationRes.data);
-      }
-    } catch {
-      setHistory([]);
-    } finally {
-      setHistoryLoading(false);
-    }
+  const refreshUserBookState = async () => {
+    if (!user) return;
+    const [borrowRes, reservationRes] = await Promise.all([
+      getMyBorrowRecords(user.studentId),
+      getMyReservations(user.userId),
+      refetch(),
+    ]);
+    setActiveBorrowedBookIds(new Set((borrowRes.data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId))));
+    setReservationsByBookId(new Map(reservationRes.data.map((r) => [r.bookId, r])));
   };
 
   return (
@@ -232,7 +157,7 @@ function SearchBooksPage() {
                       <StatusBadge status={b.status} />
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => showBookDetail(b)}>
+                      <Button variant="ghost" size="sm" onClick={() => setDetail(b)}>
                         <Eye className="mr-1 h-4 w-4" />
                         詳情
                       </Button>
@@ -246,8 +171,8 @@ function SearchBooksPage() {
                         variant={action.tone === "reserve" ? "secondary" : "default"}
                         size="sm"
                         className={`ml-2 ${bookActionClass(action.tone)}`}
-                        disabled={action.disabled || borrowingId === b.id}
-                        onClick={() => showBookDetail(b)}
+                        disabled={action.disabled}
+                        onClick={() => setDetail(b)}
                       >
                         <BookPlus className="mr-1 h-4 w-4" />
                         {action.label}
@@ -262,145 +187,7 @@ function SearchBooksPage() {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={!!detail}
-        onOpenChange={(o) => {
-          if (!o) {
-            setDetail(null);
-            setBorrowDays(7);
-            setHistory([]);
-          }
-        }}
-      >
-        <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden p-0">
-          {detail && (
-            <div className="flex max-h-[85vh] flex-col">
-              <div className="border-b bg-background px-6 py-4">
-                <DialogHeader>
-                  <DialogTitle className="truncate pr-8">{detail.title}</DialogTitle>
-                  <DialogDescription>編號 {detail.id}</DialogDescription>
-                </DialogHeader>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-6 py-4">
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                  <DT label="出版社" value={detail.publisher} />
-                  <DT label="出版年" value={String(detail.publishYear)} />
-                  <DT label="版本" value={detail.edition || "—"} />
-                  <DT label="格式" value={detail.format || "—"} />
-                  <DT label="資料來源" value={detail.source || "—"} />
-                  <DT label="狀態" value={<StatusBadge status={detail.status} />} />
-                  <div className="col-span-2">
-                    <dt className="text-xs text-muted-foreground">附註</dt>
-                    <dd className="mt-1">{detail.note || "—"}</dd>
-                  </div>
-                </dl>
-
-                {detail.status === "BORROWED" && reservationInfo && (
-                  <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                    目前預約人數：{reservationInfo.waitingCount} 人
-                    {reservationInfo.myQueuePosition
-                      ? `｜你是第 ${reservationInfo.myQueuePosition} 位（已預約）`
-                      : "｜你尚未在預約隊列"}
-                  </div>
-                )}
-
-                <div className="mt-4">
-                  <label className="mb-2 block text-sm font-medium">租借期限</label>
-                  <select
-                    value={borrowDays}
-                    onChange={(e) => setBorrowDays(Number(e.target.value) as 1 | 3 | 7 | 14)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    {availableBorrowDays.map((day) => (
-                      <option key={day} value={day}>
-                        {day} 天
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {user?.level === "VIP"
-                      ? "VIP 使用者可借閱最長 14 天，借出中的書籍可優先預約"
-                      : "一般使用者可借閱最長 7 天，借出中的書籍可加入預約"}
-                  </p>
-                </div>
-
-                <div className="mt-4">
-                  <h3 className="mb-2 text-sm font-semibold">近期借還紀錄</h3>
-
-                  {historyLoading ? (
-                    <p className="text-sm text-muted-foreground">載入中...</p>
-                  ) : history.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">目前沒有借還紀錄。</p>
-                  ) : (
-                    <div className="max-h-64 overflow-y-auto rounded-md border">
-                      <table className="w-full text-sm">
-                        <thead className="sticky top-0 bg-muted/50">
-                          <tr>
-                            <th className="px-3 py-2 text-left">學號</th>
-                            <th className="px-3 py-2 text-left">姓名</th>
-                            <th className="px-3 py-2 text-left">借出時間</th>
-                            <th className="px-3 py-2 text-left">到期時間</th>
-                            <th className="px-3 py-2 text-left">歸還時間</th>
-                            <th className="px-3 py-2 text-left">狀態</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {history.map((r) => (
-                            <tr key={r.id} className="border-t">
-                              <td className="px-3 py-2">{r.studentId}</td>
-                              <td className="px-3 py-2">{r.studentName}</td>
-                              <td className="px-3 py-2">{formatDate(r.borrowDate)}</td>
-                              <td className="px-3 py-2">{formatDate(r.dueDate)}</td>
-                              <td className="px-3 py-2">{formatDate(r.returnDate)}</td>
-                              <td className="px-3 py-2">
-                                <StatusBadge status={r.status} />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="border-t bg-background px-6 py-4">
-                {(userAlreadyBorrowingDetail || detailReservationStatus === "WAITING") && (
-                  <p className="mb-2 text-sm font-medium text-amber-700">
-                    {userAlreadyBorrowingDetail ? "你已借閱此書，無法再次預約" : "你已在預約隊列中"}
-                  </p>
-                )}
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setDetail(null)}>
-                    關閉
-                  </Button>
-                  {(() => {
-                    const action = getBookAction(detail.status, userAlreadyBorrowingDetail, detailReservationStatus);
-                    return <Button className={bookActionClass(action.tone)} disabled={action.disabled || borrowingId === detail.id} onClick={() => handleBorrow(detail)}>
-                    {borrowingId === detail.id ? (
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    ) : (
-                      <BookPlus className="mr-1 h-4 w-4" />
-                    )}
-                    {action.label}
-                  </Button>;
-                  })()}
-                </DialogFooter>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <BookDetailDialog book={detail} user={user} open={!!detail} onOpenChange={(open)=>!open&&setDetail(null)} onUpdated={refreshUserBookState} />
     </>
-  );
-}
-
-function DT({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1">{value}</dd>
-    </div>
   );
 }

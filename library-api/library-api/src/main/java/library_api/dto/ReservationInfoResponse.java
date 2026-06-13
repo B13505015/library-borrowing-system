@@ -6,16 +6,18 @@ public class ReservationInfoResponse {
     private boolean alreadyBorrowing;
     private boolean alreadyReserved;
     private String activeReservationStatus;
+    private Integer reservationId;
 
     public ReservationInfoResponse() {}
 
     public ReservationInfoResponse(int waitingCount, Integer myQueuePosition, boolean alreadyBorrowing, boolean alreadyReserved,
-                                   String activeReservationStatus) {
+                                   String activeReservationStatus, Integer reservationId) {
         this.waitingCount = waitingCount;
         this.myQueuePosition = myQueuePosition;
         this.alreadyBorrowing = alreadyBorrowing;
         this.alreadyReserved = alreadyReserved;
         this.activeReservationStatus = activeReservationStatus;
+        this.reservationId = reservationId;
     }
 
     public int getWaitingCount() { return waitingCount; }
@@ -28,4 +30,6 @@ public class ReservationInfoResponse {
     public void setAlreadyReserved(boolean alreadyReserved) { this.alreadyReserved = alreadyReserved; }
     public String getActiveReservationStatus() { return activeReservationStatus; }
     public void setActiveReservationStatus(String activeReservationStatus) { this.activeReservationStatus = activeReservationStatus; }
+    public Integer getReservationId() { return reservationId; }
+    public void setReservationId(Integer reservationId) { this.reservationId = reservationId; }
 }
