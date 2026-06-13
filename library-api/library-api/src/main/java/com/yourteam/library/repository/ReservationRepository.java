@@ -3,6 +3,7 @@ package com.yourteam.library.repository;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 import com.yourteam.library.config.DBConnection;
@@ -129,6 +130,97 @@ public class ReservationRepository {
             pstmt.setInt(2, userId);
             ResultSet rs = pstmt.executeQuery();
             return rs.next();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public String findActiveReservationStatus(int userId, int bookId) {
+        String sql = "SELECT r.status FROM reservations r JOIN books b ON b.book_id = r.book_id "
+                + "WHERE b.title = (SELECT title FROM books WHERE book_id = ?) "
+                + "AND r.user_id = ? AND r.status IN ('WAITING','NOTIFIED') "
+                + "ORDER BY CASE r.status WHEN 'NOTIFIED' THEN 0 ELSE 1 END, r.created_at ASC LIMIT 1";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, bookId);
+            pstmt.setInt(2, userId);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? rs.getString("status") : null;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public boolean cancelReservation(int reservationId, int userId) {
+        String sql = "UPDATE reservations SET status = 'CANCELLED' "
+                + "WHERE reservation_id = ? AND user_id = ? AND status = 'WAITING'";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, reservationId);
+            pstmt.setInt(2, userId);
+            return pstmt.executeUpdate() > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public boolean fulfillNotifiedReservation(int reservationId, int userId, int borrowDays) {
+        String selectSql = "SELECT r.book_id FROM reservations r JOIN books b ON b.book_id = r.book_id "
+                + "WHERE r.reservation_id = ? AND r.user_id = ? AND r.status = 'NOTIFIED' "
+                + "AND (r.expires_at IS NULL OR r.expires_at >= NOW()) AND b.status = 'AVAILABLE' FOR UPDATE";
+        String insertSql = "INSERT INTO borrow_records "
+                + "(user_id, book_id, borrow_date, due_date, return_date, borrow_days, created_at) "
+                + "VALUES (?, ?, ?, ?, NULL, ?, ?)";
+        String updateBookSql = "UPDATE books SET status = 'BORROWED' WHERE book_id = ? AND status = 'AVAILABLE'";
+        String updateReservationSql = "UPDATE reservations SET status = 'FULFILLED' "
+                + "WHERE reservation_id = ? AND user_id = ? AND status = 'NOTIFIED'";
+
+        try (Connection conn = DBConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                int bookId;
+                try (PreparedStatement select = conn.prepareStatement(selectSql)) {
+                    select.setInt(1, reservationId);
+                    select.setInt(2, userId);
+                    ResultSet rs = select.executeQuery();
+                    if (!rs.next()) {
+                        conn.rollback();
+                        return false;
+                    }
+                    bookId = rs.getInt("book_id");
+                }
+
+                LocalDateTime now = LocalDateTime.now();
+                try (PreparedStatement insert = conn.prepareStatement(insertSql)) {
+                    insert.setInt(1, userId);
+                    insert.setInt(2, bookId);
+                    insert.setTimestamp(3, Timestamp.valueOf(now));
+                    insert.setTimestamp(4, Timestamp.valueOf(now.plusDays(borrowDays)));
+                    insert.setInt(5, borrowDays);
+                    insert.setTimestamp(6, Timestamp.valueOf(now));
+                    if (insert.executeUpdate() != 1) throw new IllegalStateException("借閱紀錄新增失敗");
+                }
+
+                try (PreparedStatement updateBook = conn.prepareStatement(updateBookSql)) {
+                    updateBook.setInt(1, bookId);
+                    if (updateBook.executeUpdate() != 1) throw new IllegalStateException("書籍狀態更新失敗");
+                }
+
+                try (PreparedStatement updateReservation = conn.prepareStatement(updateReservationSql)) {
+                    updateReservation.setInt(1, reservationId);
+                    updateReservation.setInt(2, userId);
+                    if (updateReservation.executeUpdate() != 1) throw new IllegalStateException("預約狀態更新失敗");
+                }
+
+                conn.commit();
+                return true;
+            } catch (Exception e) {
+                conn.rollback();
+                e.printStackTrace();
+            } finally {
+                conn.setAutoCommit(true);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
