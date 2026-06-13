@@ -18,8 +18,10 @@ export function getBookAction(
 }
 
 export function bookActionClass(tone: "borrow" | "reserve" | "disabled") {
-  const size = "h-10 min-w-[112px] justify-center whitespace-nowrap";
+  const size = "h-9 min-w-[96px] justify-center whitespace-nowrap px-3 text-sm";
   if (tone === "reserve") return `${size} bg-amber-500 text-white hover:bg-amber-600`;
-  if (tone === "disabled") return `${size} disabled:cursor-not-allowed disabled:opacity-55`;
+  if (tone === "disabled") {
+    return `${size} border border-gray-300 bg-gray-200 text-gray-500 shadow-none hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:opacity-100`;
+  }
   return size;
 }

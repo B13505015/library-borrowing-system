@@ -19,12 +19,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAsync } from "@/hooks/useAsync";
-import { searchBooks, getMyReservations, type MyReservation } from "@/services/bookService";
+import { getAllBooks, searchBooks, getMyReservations, type MyReservation } from "@/services/bookService";
 import { getMyBorrowRecords } from "@/services/borrowService";
 import { addFavorite, getMyFavoriteBookIds, removeFavorite } from "@/services/favoriteService";
 import { useAuth } from "@/context/AuthContext";
 import type { Book } from "@/types/book";
 import { bookActionClass, getBookAction } from "@/lib/bookAction";
+import { getActiveBorrowedBookIds } from "@/lib/borrowRecord";
 import { BookDetailDialog } from "@/components/books/BookDetailDialog";
 
 export const Route = createFileRoute("/user/books")({
@@ -56,9 +57,18 @@ function SearchBooksPage() {
     const loadMyActiveBorrows = async () => {
       if (!user) return;
       try {
-        const res = await getMyBorrowRecords(user.studentId);
-        const ids = new Set((res.data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId)).filter((v) => Number.isFinite(v)));
-        setActiveBorrowedBookIds(ids);
+        const [res, books] = await Promise.all([
+          getMyBorrowRecords(user.studentId),
+          getAllBooks(),
+        ]);
+        setActiveBorrowedBookIds(getActiveBorrowedBookIds(res.data ?? [], books.data ?? []));
+      } catch {}
+    };
+    const loadMyReservations = async () => {
+      if (!user) return;
+      try {
+        const res = await getMyReservations(user.userId);
+        setReservationsByBookId(new Map(res.data.map((r) => [r.bookId, r])));
       } catch {}
     };
     const loadMyReservations = async () => {
@@ -97,12 +107,13 @@ function SearchBooksPage() {
 
   const refreshUserBookState = async () => {
     if (!user) return;
-    const [borrowRes, reservationRes] = await Promise.all([
+    const [borrowRes, reservationRes, booksRes] = await Promise.all([
       getMyBorrowRecords(user.studentId),
       getMyReservations(user.userId),
+      getAllBooks(),
       refetch(),
     ]);
-    setActiveBorrowedBookIds(new Set((borrowRes.data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId))));
+    setActiveBorrowedBookIds(getActiveBorrowedBookIds(borrowRes.data ?? [], booksRes.data ?? []));
     setReservationsByBookId(new Map(reservationRes.data.map((r) => [r.bookId, r])));
   };
 

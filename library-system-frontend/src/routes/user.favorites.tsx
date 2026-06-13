@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { BookDetailDialog } from "@/components/books/BookDetailDialog";
 import { bookActionClass, getBookAction } from "@/lib/bookAction";
+import { getActiveBorrowedBookIds } from "@/lib/borrowRecord";
 import type { Book } from "@/types/book";
 
 export const Route = createFileRoute("/user/favorites")({ component: Page });
@@ -28,12 +29,13 @@ function Page() {
 
   const refreshUserState = async () => {
     if (!user) return;
-    const [borrowRes, reservationRes] = await Promise.all([
+    const [borrowRes, reservationRes, booksRes] = await Promise.all([
       getMyBorrowRecords(user.studentId),
       getMyReservations(user.userId),
+      getAllBooks(),
       refetch(),
     ]);
-    setActiveBorrowedBookIds(new Set((borrowRes.data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId))));
+    setActiveBorrowedBookIds(getActiveBorrowedBookIds(borrowRes.data ?? [], booksRes.data ?? []));
     setReservationsByBookId(new Map(reservationRes.data.map((r) => [r.bookId, r])));
   };
 
@@ -47,7 +49,7 @@ function Page() {
       <p className="text-sm text-muted-foreground">出版年：{b.publishYear}</p>
       <p className="text-sm text-muted-foreground">格式：{b.format || "—"}</p>
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" className="h-10 min-w-[112px] justify-center whitespace-nowrap" onClick={() => setDetail(b)}>詳情</Button>
+        <Button variant="outline" className="h-9 min-w-[96px] justify-center whitespace-nowrap px-3 text-sm" onClick={() => setDetail(b)}>詳情</Button>
         <Button className={bookActionClass(action.tone)} disabled={action.disabled} onClick={() => setDetail(b)}>{action.label}</Button>
       </div>
     </CardContent></Card>})}</div>

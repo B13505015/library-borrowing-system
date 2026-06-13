@@ -14,6 +14,7 @@ import { getAllBooks, getPopularBooks, getReservationNotifications, getMyReserva
 import { toast } from "sonner";
 import { formatDate, daysUntil, isDueSoon, dueSoonText } from "@/lib/format";
 import { bookActionClass, getBookAction } from "@/lib/bookAction";
+import { getActiveBorrowedBookIds, isActiveBorrowRecord } from "@/lib/borrowRecord";
 import { cancelReservation, fulfillReservation } from "@/services/reservationService";
 import type { Book } from "@/types/book";
 import { BookDetailDialog } from "@/components/books/BookDetailDialog";
@@ -33,10 +34,10 @@ function UserDashboardPage() {
   const { data: reservationNotifications, refetch: refetchReservationNotifications } = useAsync(() => user ? getReservationNotifications(user.userId).then((r) => r.data) : Promise.resolve([]), [user?.userId]);
   const { data: myReservations, refetch: refetchMyReservations } = useAsync(() => user ? getMyReservations(user.userId).then((r) => r.data) : Promise.resolve([]), [user?.userId]);
 
-  const active = (data ?? []).filter((r) => r.status !== "RETURNED");
+  const active = (data ?? []).filter(isActiveBorrowRecord);
   const overdue = (data ?? []).filter((r) => r.status === "OVERDUE");
   const dueSoon = active.filter((r) => r.status !== "OVERDUE" && isDueSoon(r.dueDate));
-  const activeBorrowedBookIds = new Set((data ?? []).filter((r) => r.status !== "RETURNED").map((r) => Number(r.bookId)).filter((v) => Number.isFinite(v)));
+  const activeBorrowedBookIds = getActiveBorrowedBookIds(data ?? [], rankedBooks ?? []);
   const notifiedReservations = (myReservations ?? []).filter((r) =>
     r.status === "NOTIFIED" && (!r.expiresAt || new Date(r.expiresAt).getTime() >= Date.now()),
   );
