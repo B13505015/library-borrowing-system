@@ -81,6 +81,7 @@ public class PenaltyRepository {
                 + "JOIN borrow_records br ON br.record_id = p.borrow_record_id "
                 + "JOIN books b ON b.book_id = br.book_id "
                 + "WHERE p.penalty_type = 'FINE' "
+                + "AND br.return_date IS NOT NULL "
                 + "AND (? = '' OR LOWER(u.student_no) LIKE ? OR LOWER(u.name) LIKE ? OR LOWER(b.title) LIKE ?) "
                 + "AND (? = '' OR p.status = ?) "
                 + "ORDER BY p.created_at DESC";
@@ -114,11 +115,16 @@ public class PenaltyRepository {
                         toString(rs.getTimestamp("return_date")),
                         overdueDays,
                         rs.getDouble("amount"),
-                        rs.getString("status")
+                        rs.getString("status"),
+                        true,
+                        "OPEN".equals(rs.getString("status"))
                 ));
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+        if (shouldIncludeAccruing(status)) {
+            penalties.addAll(findAccruingPenalties(normalizedKeyword, likeKeyword));
         }
         return penalties;
     }
@@ -139,6 +145,8 @@ public class PenaltyRepository {
             if (!rs.next()) return null;
             LocalDateTime dueDate = toDateTime(rs.getTimestamp("due_date"));
             LocalDateTime returnDate = toDateTime(rs.getTimestamp("return_date"));
+            boolean settled = returnDate != null;
+            String status = rs.getString("status");
             return new AdminPenaltyResponse(
                     rs.getInt("penalty_id"),
                     rs.getInt("borrow_record_id"),
@@ -155,7 +163,9 @@ public class PenaltyRepository {
                             returnDate == null ? LocalDateTime.now() : returnDate
                     ),
                     rs.getDouble("amount"),
-                    rs.getString("status")
+                    status,
+                    settled,
+                    settled && "OPEN".equals(status)
             );
         } catch (Exception e) {
             e.printStackTrace();
@@ -266,6 +276,7 @@ public class PenaltyRepository {
         }
         AdminPenaltyResponse penalty = findPenaltyById(penaltyId);
         if (penalty == null) return "NOT_FOUND";
+        if (!penalty.isSettled()) return "INVALID_TRANSITION";
         if (!"OPEN".equals(penalty.getStatus())) return "INVALID_TRANSITION";
         String sql = "UPDATE user_penalties SET status = ? "
                 + "WHERE penalty_id = ? AND penalty_type = 'FINE' AND status = 'OPEN'";
@@ -282,7 +293,67 @@ public class PenaltyRepository {
 
     private String normalizeDatabaseStatus(String status) {
         if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) return "";
+        if ("ACCRUING".equalsIgnoreCase(status) || "UNSETTLED".equalsIgnoreCase(status)) {
+            return "ACCRUING";
+        }
         return "UNPAID".equalsIgnoreCase(status) ? "OPEN" : status.toUpperCase();
+    }
+
+    private boolean shouldIncludeAccruing(String status) {
+        return status == null
+                || status.isBlank()
+                || "ALL".equalsIgnoreCase(status)
+                || "ACCRUING".equalsIgnoreCase(status)
+                || "UNSETTLED".equalsIgnoreCase(status);
+    }
+
+    private List<AdminPenaltyResponse> findAccruingPenalties(
+            String normalizedKeyword,
+            String likeKeyword) {
+        List<AdminPenaltyResponse> penalties = new ArrayList<>();
+        String sql = "SELECT br.record_id, br.user_id, u.student_no, u.name AS user_name, "
+                + "br.book_id, b.title AS book_title, br.borrow_date, br.due_date "
+                + "FROM borrow_records br "
+                + "JOIN users u ON u.user_id = br.user_id "
+                + "JOIN books b ON b.book_id = br.book_id "
+                + "WHERE br.return_date IS NULL AND br.due_date < CURRENT_TIMESTAMP "
+                + "AND (? = '' OR LOWER(u.student_no) LIKE ? OR LOWER(u.name) LIKE ? OR LOWER(b.title) LIKE ?) "
+                + "ORDER BY br.due_date ASC";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, normalizedKeyword);
+            pstmt.setString(2, likeKeyword);
+            pstmt.setString(3, likeKeyword);
+            pstmt.setString(4, likeKeyword);
+            ResultSet rs = pstmt.executeQuery();
+            LocalDateTime now = LocalDateTime.now();
+            while (rs.next()) {
+                long overdueDays = PenaltyService.calculateOverdueDays(
+                        toDateTime(rs.getTimestamp("due_date")),
+                        now
+                );
+                penalties.add(new AdminPenaltyResponse(
+                        null,
+                        rs.getInt("record_id"),
+                        rs.getInt("user_id"),
+                        rs.getString("student_no"),
+                        rs.getString("user_name"),
+                        rs.getInt("book_id"),
+                        rs.getString("book_title"),
+                        toString(rs.getTimestamp("borrow_date")),
+                        toString(rs.getTimestamp("due_date")),
+                        null,
+                        overdueDays,
+                        PenaltyService.calculateFine(overdueDays),
+                        "ACCRUING",
+                        false,
+                        false
+                ));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return penalties;
     }
 
     private LocalDateTime toDateTime(Timestamp timestamp) {

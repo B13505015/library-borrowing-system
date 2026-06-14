@@ -40,6 +40,7 @@ function AdminPenaltiesPage() {
   );
 
   const onUpdateStatus = async (penalty: AdminPenalty, nextStatus: "PAID" | "WAIVED") => {
+    if (!penalty.penaltyId || !penalty.settled || !penalty.payable) return;
     const action = nextStatus === "PAID" ? "標記為已繳" : "免除此筆罰款";
     if (!window.confirm(`確認要將「${penalty.userName}／${penalty.bookTitle}」${action}？`)) return;
     setUpdatingId(penalty.penaltyId);
@@ -73,6 +74,7 @@ function AdminPenaltiesPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">全部</SelectItem>
+            <SelectItem value="ACCRUING">逾期中</SelectItem>
             <SelectItem value="UNPAID">未繳</SelectItem>
             <SelectItem value="PAID">已繳</SelectItem>
             <SelectItem value="WAIVED">已免除</SelectItem>
@@ -106,7 +108,7 @@ function AdminPenaltiesPage() {
             </TableHeader>
             <TableBody>
               {data.map((penalty) => (
-                <TableRow key={penalty.penaltyId}>
+                <TableRow key={penalty.penaltyId ?? `record-${penalty.recordId}`}>
                   <TableCell>
                     <p className="font-medium">{penalty.userName}</p>
                     <p className="font-mono text-xs text-muted-foreground">{penalty.studentId}</p>
@@ -114,14 +116,16 @@ function AdminPenaltiesPage() {
                   <TableCell className="font-medium">{penalty.bookTitle}</TableCell>
                   <TableCell>{formatDate(penalty.borrowDate)}</TableCell>
                   <TableCell>{formatDate(penalty.dueDate)}</TableCell>
-                  <TableCell>{formatDate(penalty.returnDate)}</TableCell>
+                  <TableCell>{penalty.returnDate ? formatDate(penalty.returnDate) : "尚未歸還"}</TableCell>
                   <TableCell>{penalty.overdueDays} 天</TableCell>
                   <TableCell>NT${penalty.amount.toFixed(2)}</TableCell>
                   <TableCell>
                     <PenaltyStatusBadge status={penalty.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    {penalty.status === "OPEN" ? (
+                    {penalty.status === "ACCRUING" || !penalty.settled ? (
+                      <span className="text-xs text-muted-foreground">還書後結算</span>
+                    ) : penalty.status === "OPEN" && penalty.payable && penalty.penaltyId ? (
                       <div className="flex justify-end gap-2">
                         <Button
                           size="sm"
@@ -159,8 +163,12 @@ function AdminPenaltiesPage() {
 }
 
 function PenaltyStatusBadge({ status }: { status: AdminPenalty["status"] }) {
-  const label = status === "OPEN" ? "未繳" : status === "PAID" ? "已繳" : "已免除";
-  const className = status === "OPEN"
+  const label = status === "ACCRUING"
+    ? "逾期中"
+    : status === "OPEN" ? "未繳" : status === "PAID" ? "已繳" : "已免除";
+  const className = status === "ACCRUING"
+    ? "border-amber-300 bg-amber-50 text-amber-700"
+    : status === "OPEN"
     ? "border-destructive/30 bg-destructive/10 text-destructive"
     : status === "PAID"
       ? "border-success/30 bg-success/10 text-success"

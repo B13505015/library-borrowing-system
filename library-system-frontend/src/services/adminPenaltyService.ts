@@ -1,11 +1,11 @@
 import { ApiError, type ApiResponse } from "@/types/api";
 import { http } from "./http";
 
-export type AdminPenaltyStatus = "OPEN" | "PAID" | "WAIVED";
-export type AdminPenaltyFilter = "ALL" | "UNPAID" | "PAID" | "WAIVED";
+export type AdminPenaltyStatus = "OPEN" | "PAID" | "WAIVED" | "ACCRUING";
+export type AdminPenaltyFilter = "ALL" | "ACCRUING" | "UNPAID" | "PAID" | "WAIVED";
 
 export interface AdminPenalty {
-  penaltyId: number;
+  penaltyId: number | null;
   recordId: number;
   userId: number;
   studentId: string;
@@ -18,6 +18,8 @@ export interface AdminPenalty {
   overdueDays: number;
   amount: number;
   status: AdminPenaltyStatus;
+  settled: boolean;
+  payable: boolean;
 }
 
 export async function getAdminPenalties(
