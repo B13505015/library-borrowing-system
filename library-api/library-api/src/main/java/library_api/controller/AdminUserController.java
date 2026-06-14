@@ -3,7 +3,6 @@ package library_api.controller;
 import java.util.ArrayList;
 import java.util.List;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +27,7 @@ import library_api.dto.AdminUserDetailResponse;
 import library_api.dto.UserResponse;
 import library_api.dto.UpdateRoleLevelRequest;
 import com.yourteam.library.repository.UserRepository;
+import com.yourteam.library.service.PenaltyService;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -120,10 +120,8 @@ public class AdminUserController {
         for (BorrowRecord r : records) {
             Book book = bookRepository.findByBookId(r.getBookId());
             LocalDateTime comparisonDate = r.getReturnDate() == null ? LocalDateTime.now() : r.getReturnDate();
-            boolean overdue = r.getDueDate() != null && comparisonDate.isAfter(r.getDueDate());
-            long overdueDays = overdue
-                    ? Math.max(1, ChronoUnit.DAYS.between(r.getDueDate(), comparisonDate))
-                    : 0;
+            long overdueDays = PenaltyService.calculateOverdueDays(r.getDueDate(), comparisonDate);
+            boolean overdue = overdueDays > 0;
             String status = r.getReturnDate() != null
                     ? "RETURNED"
                     : overdue ? "OVERDUE" : "BORROWED";
@@ -137,7 +135,7 @@ public class AdminUserController {
             m.put("returnDate", r.getReturnDate());
             m.put("status", status);
             m.put("overdueDays", overdueDays);
-            m.put("fineAmount", overdueDays * 5);
+            m.put("fineAmount", PenaltyService.calculateFine(overdueDays));
             recordMaps.add(m);
         }
 

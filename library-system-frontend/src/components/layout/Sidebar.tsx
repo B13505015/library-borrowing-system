@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookCopy, BookOpen, ClipboardList, LayoutDashboard, MessageSquare, Users } from "lucide-react";
+import { BookCopy, BookOpen, CircleDollarSign, ClipboardList, LayoutDashboard, MessageSquare, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,7 @@ const NAV = [
   { to: "/admin/books", label: "書籍管理", icon: BookCopy, exact: false },
   { to: "/admin/users", label: "使用者管理", icon: Users, exact: false },
   { to: "/admin/records", label: "借閱紀錄管理", icon: ClipboardList, exact: false },
+  { to: "/admin/penalties", label: "罰款管理", icon: CircleDollarSign, exact: false },
   { to: "/admin/reviews", label: "書評管理", icon: MessageSquare, exact: false },
 ] as const;
 
