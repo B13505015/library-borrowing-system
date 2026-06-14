@@ -10,6 +10,7 @@ export interface RegisterRequest {
   name: string;
   password: string;
   level: "NORMAL" | "VIP";
+  paymentConfirmed?: boolean;
 }
 
 export interface AuthSession {

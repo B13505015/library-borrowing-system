@@ -17,7 +17,18 @@ public class RegisterService {
     // STUDENT_EXISTS -> 學號已存在
     // REGISTER_SUCCESS -> 註冊成功
     // REGISTER_FAILED -> 註冊失敗
-    public String registerUser(String studentNo, String name, String password, String level) {
+    public String registerUser(String studentNo, String name, String password, String level, Boolean paymentConfirmed) {
+
+        if (level == null) {
+            return "INVALID_ROLE_LEVEL";
+        }
+        String normalizedLevel = level.trim().toUpperCase();
+        if (!"NORMAL".equals(normalizedLevel) && !"VIP".equals(normalizedLevel)) {
+            return "INVALID_ROLE_LEVEL";
+        }
+        if ("VIP".equals(normalizedLevel) && !Boolean.TRUE.equals(paymentConfirmed)) {
+            return "VIP_PAYMENT_REQUIRED";
+        }
 
         User existingUser = userRepository.findByStudentNo(studentNo);
         if (existingUser != null) {
@@ -29,10 +40,7 @@ public class RegisterService {
         user.setName(name);
         user.setPassword(password);
         
-        if (!"VIP".equalsIgnoreCase(level)) {
-            level = "NORMAL";
-        }
-        user.setRoleLevel(level.toUpperCase());
+        user.setRoleLevel(normalizedLevel);
         user.setStatus("ACTIVE");
 
         boolean success = userRepository.insertUser(user, LocalDateTime.now());

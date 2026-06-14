@@ -357,4 +357,34 @@ public class BorrowRecordRepository {
         }
         return false;
     }
+
+    public boolean hasActiveBorrowByBook(int bookId) {
+        String sql = "SELECT 1 FROM borrow_records WHERE book_id = ? AND return_date IS NULL LIMIT 1";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, bookId);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public List<String> findBorrowedBookSubjects() {
+        List<String> subjects = new ArrayList<>();
+        String sql = "SELECT b.subjects "
+                + "FROM borrow_records br "
+                + "JOIN books b ON b.book_id = br.book_id "
+                + "WHERE b.subjects IS NOT NULL AND TRIM(b.subjects) <> ''";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                subjects.add(rs.getString("subjects"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return subjects;
+    }
 }
