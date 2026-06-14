@@ -6,6 +6,7 @@ public class RegisterRequest {
     private String name;
     private String password;
     private String level;
+    private Boolean paymentConfirmed;
 
     public RegisterRequest() {
     }
@@ -40,5 +41,13 @@ public class RegisterRequest {
 
     public void setLevel(String level) {
         this.level = level;
+    }
+
+    public Boolean getPaymentConfirmed() {
+        return paymentConfirmed;
+    }
+
+    public void setPaymentConfirmed(Boolean paymentConfirmed) {
+        this.paymentConfirmed = paymentConfirmed;
     }
 }

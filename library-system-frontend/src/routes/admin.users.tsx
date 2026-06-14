@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Ban, CheckCircle2 } from "lucide-react";
+import { Ban, CheckCircle2, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SearchBar } from "@/components/common/SearchBar";
@@ -14,8 +14,9 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { formatDate } from "@/lib/format";
 import { useAsync } from "@/hooks/useAsync";
-import { searchUsers, handleSuspendUser, handleActivateUser, getUserDetail, type AdminUserDetail } from "@/services/adminService";
+import { searchUsers, handleSuspendUser, handleActivateUser, getUserDetail, updateUserRoleLevel, type AdminUserDetail } from "@/services/adminService";
 
 export const Route = createFileRoute("/admin/users")({
   head: () => ({ meta: [{ title: "使用者管理 — 圖書館借還書系統" }] }),
@@ -55,6 +56,26 @@ function AdminUsersPage() {
     }
   };
 
+  const onChangeRoleLevel = async (studentId: string, currentLevel: "NORMAL" | "VIP") => {
+    const nextLevel = currentLevel === "VIP" ? "NORMAL" : "VIP";
+    const message = nextLevel === "VIP"
+      ? "確認將此使用者升級為 VIP？"
+      : "確認將此使用者降為一般會員？";
+    if (!window.confirm(message)) return;
+
+    setActingId(studentId);
+    try {
+      const response = await updateUserRoleLevel(studentId, nextLevel);
+      toast.success(response.message || "會員等級更新成功");
+      if (detail?.studentId === studentId) setDetail(null);
+      await refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "會員等級更新失敗");
+    } finally {
+      setActingId(null);
+    }
+  };
+
   return (
     <>
       <PageHeader title="使用者管理" description="管理使用者帳號狀態。" />
@@ -80,7 +101,7 @@ function AdminUsersPage() {
                   <TableHead>姓名</TableHead>
                   <TableHead className="w-[120px]">等級</TableHead>
                   <TableHead className="w-[100px]">狀態</TableHead>
-                  <TableHead className="w-[220px] text-right">操作</TableHead>
+                  <TableHead className="w-[340px] text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -91,10 +112,19 @@ function AdminUsersPage() {
                     <TableCell>{u.level === "VIP" ? "VIP" : "一般"}</TableCell>
                     <TableCell><StatusBadge status={u.status} /></TableCell>
                     <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={actingId === u.studentId}
+                        onClick={() => onChangeRoleLevel(u.studentId, u.level)}
+                      >
+                        <Crown className="mr-1 h-4 w-4" />
+                        {u.level === "VIP" ? "降為一般" : "升級 VIP"}
+                      </Button>
                       {u.status === "ACTIVE" ? (
                         <Button
                           variant="outline" size="sm"
-                          className="text-destructive hover:text-destructive"
+                          className="ml-1 text-destructive hover:text-destructive"
                           disabled={actingId === u.studentId}
                           onClick={() => onToggle(u.studentId, true)}
                         >
@@ -104,6 +134,7 @@ function AdminUsersPage() {
                       ) : (
                         <Button
                           variant="outline" size="sm"
+                          className="ml-1"
                           disabled={actingId === u.studentId}
                           onClick={() => onToggle(u.studentId, false)}
                         >
@@ -121,13 +152,48 @@ function AdminUsersPage() {
         </CardContent>
       </Card>
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-5xl">
           <DialogHeader><DialogTitle>使用者詳情 {detail?.studentId}</DialogTitle></DialogHeader>
-          {detail && <div className="space-y-2 text-sm">
-            <p>姓名：{detail.name}</p><p>等級：{detail.level}</p><p>狀態：{detail.status}</p>
-            <p>收藏數：{detail.favoriteCount}｜書評數：{detail.reviewCount}</p>
+          {detail && <div className="space-y-4 text-sm">
+            <div className="grid gap-2 rounded-md bg-muted/40 p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <p>姓名：{detail.name}</p><p>等級：{detail.level}</p><p>狀態：{detail.status}</p>
+              <p>收藏數：{detail.favoriteCount}｜書評數：{detail.reviewCount}</p>
+            </div>
             <p className="font-medium">借閱紀錄（{detail.borrowRecords.length}）</p>
-            <div className="max-h-48 overflow-auto rounded border p-2">{detail.borrowRecords.map((r) => <p key={r.recordId}>#{r.recordId} 書籍{r.bookId} 借:{String(r.borrowDate).slice(0,10)} 到期:{String(r.dueDate).slice(0,10)}</p>)}</div>
+            {detail.borrowRecords.length === 0 ? (
+              <div className="rounded-md border border-dashed p-6 text-center text-muted-foreground">尚無借閱紀錄</div>
+            ) : (
+              <div className="max-h-[50vh] overflow-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>書名</TableHead>
+                      <TableHead>借閱日期</TableHead>
+                      <TableHead>到期日</TableHead>
+                      <TableHead>歸還日</TableHead>
+                      <TableHead>狀態</TableHead>
+                      <TableHead>逾期／罰款</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detail.borrowRecords.map((record) => (
+                      <TableRow key={record.recordId}>
+                        <TableCell className="font-medium">{record.bookTitle}</TableCell>
+                        <TableCell>{formatDate(record.borrowDate)}</TableCell>
+                        <TableCell>{formatDate(record.dueDate)}</TableCell>
+                        <TableCell>{record.returnDate ? formatDate(record.returnDate) : "尚未歸還"}</TableCell>
+                        <TableCell><StatusBadge status={record.status} /></TableCell>
+                        <TableCell>
+                          {record.overdueDays > 0
+                            ? `逾期 ${record.overdueDays} 天／NT$${Number(record.fineAmount).toFixed(0)}`
+                            : "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>}
         </DialogContent>
       </Dialog>
