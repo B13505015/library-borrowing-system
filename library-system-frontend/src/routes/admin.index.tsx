@@ -50,7 +50,7 @@ function AdminDashboardPage() {
   const highestBorrowCount = topSubjects[0]?.borrowCount ?? 0;
 
   return (
-    <div>
+    <main>
       <PageHeader
         title="管理員總覽"
         description={`${user?.name ?? "管理員"}　|　最後更新：${formatDate(new Date().toISOString())}`}
@@ -99,7 +99,7 @@ function AdminDashboardPage() {
           </Card>
         </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-3">
+      <section className="mt-6 grid gap-5 lg:grid-cols-3">
         <Card className="border-0 bg-card/80 shadow-sm lg:col-span-2">
           <CardContent className="p-6">
             <h2 className="mb-4 text-lg font-semibold">最近借閱活動</h2>
@@ -198,7 +198,7 @@ function AdminDashboardPage() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
