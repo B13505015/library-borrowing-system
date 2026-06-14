@@ -10,6 +10,25 @@ export interface DashboardStats {
   overdueCount: number;
 }
 
+export interface SubjectBorrowStat {
+  subject: string;
+  borrowCount: number;
+  percentage: number;
+}
+
+export async function getSubjectBorrowStats(): Promise<ApiResponse<SubjectBorrowStat[]>> {
+  try {
+    const response = await http.get<SubjectBorrowStat[]>("/admin/statistics/subjects");
+    if (!response.success || !response.data) {
+      throw new ApiError(response.message || "查詢主題借閱統計失敗");
+    }
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("查詢主題借閱統計失敗");
+  }
+}
+
 export async function fetchDashboardStats(): Promise<ApiResponse<DashboardStats>> {
   try {
     const response = await http.get<DashboardStats>("/admin/dashboard/stats");

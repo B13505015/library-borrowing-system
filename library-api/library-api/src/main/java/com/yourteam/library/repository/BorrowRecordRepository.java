@@ -369,4 +369,22 @@ public class BorrowRecordRepository {
         }
         return false;
     }
+
+    public List<String> findBorrowedBookSubjects() {
+        List<String> subjects = new ArrayList<>();
+        String sql = "SELECT b.subjects "
+                + "FROM borrow_records br "
+                + "JOIN books b ON b.book_id = br.book_id "
+                + "WHERE b.subjects IS NOT NULL AND TRIM(b.subjects) <> ''";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                subjects.add(rs.getString("subjects"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return subjects;
+    }
 }
