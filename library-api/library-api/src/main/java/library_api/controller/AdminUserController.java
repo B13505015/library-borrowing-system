@@ -2,6 +2,8 @@ package library_api.controller;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.yourteam.library.entity.BorrowRecord;
+import com.yourteam.library.entity.Book;
+import com.yourteam.library.repository.BookRepository;
 import com.yourteam.library.repository.BorrowRecordRepository;
 
 import com.yourteam.library.entity.User;
@@ -31,11 +35,13 @@ public class AdminUserController {
 
     private final UserService userService;
     private final BorrowRecordRepository borrowRecordRepository;
+    private final BookRepository bookRepository;
     private final UserRepository userRepository;
 
     public AdminUserController() {
         this.userService = new UserService();
         this.borrowRecordRepository = new BorrowRecordRepository();
+        this.bookRepository = new BookRepository();
         this.userRepository = new UserRepository();
     }
 
@@ -88,12 +94,26 @@ public class AdminUserController {
         List<BorrowRecord> records = borrowRecordRepository.findRecordsByUserId(user.getUserId());
         List<Map<String, Object>> recordMaps = new ArrayList<>();
         for (BorrowRecord r : records) {
+            Book book = bookRepository.findByBookId(r.getBookId());
+            LocalDateTime comparisonDate = r.getReturnDate() == null ? LocalDateTime.now() : r.getReturnDate();
+            boolean overdue = r.getDueDate() != null && comparisonDate.isAfter(r.getDueDate());
+            long overdueDays = overdue
+                    ? Math.max(1, ChronoUnit.DAYS.between(r.getDueDate(), comparisonDate))
+                    : 0;
+            String status = r.getReturnDate() != null
+                    ? "RETURNED"
+                    : overdue ? "OVERDUE" : "BORROWED";
+
             Map<String, Object> m = new HashMap<>();
             m.put("recordId", r.getRecordId());
             m.put("bookId", r.getBookId());
+            m.put("bookTitle", book == null ? "未知書籍" : book.getTitle());
             m.put("borrowDate", r.getBorrowDate());
             m.put("dueDate", r.getDueDate());
             m.put("returnDate", r.getReturnDate());
+            m.put("status", status);
+            m.put("overdueDays", overdueDays);
+            m.put("fineAmount", overdueDays * 5);
             recordMaps.add(m);
         }
 
