@@ -70,6 +70,7 @@ export async function handleRegister(req: RegisterRequest): Promise<ApiResponse<
       name: req.name,
       password: req.password,
       level: req.level,
+      paymentConfirmed: req.paymentConfirmed,
     });
 
     if (!response.success) {

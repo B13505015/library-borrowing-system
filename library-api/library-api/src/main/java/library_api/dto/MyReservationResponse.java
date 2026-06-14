@@ -10,9 +10,10 @@ public class MyReservationResponse {
     private String createdAt;
     private String notifiedAt;
     private String expiresAt;
+    private boolean canBorrowNotified;
 
     public MyReservationResponse(int reservationId, int bookId, String title, String status, Integer queuePosition, int queuePriority,
-                                 String createdAt, String notifiedAt, String expiresAt) {
+                                 String createdAt, String notifiedAt, String expiresAt, boolean canBorrowNotified) {
         this.reservationId = reservationId;
         this.bookId = bookId;
         this.title = title;
@@ -22,6 +23,7 @@ public class MyReservationResponse {
         this.createdAt = createdAt;
         this.notifiedAt = notifiedAt;
         this.expiresAt = expiresAt;
+        this.canBorrowNotified = canBorrowNotified;
     }
 
     public int getReservationId() { return reservationId; }
@@ -33,4 +35,5 @@ public class MyReservationResponse {
     public String getCreatedAt() { return createdAt; }
     public String getNotifiedAt() { return notifiedAt; }
     public String getExpiresAt() { return expiresAt; }
+    public boolean isCanBorrowNotified() { return canBorrowNotified; }
 }
