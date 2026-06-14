@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import com.yourteam.library.entity.BorrowRecord;
 import com.yourteam.library.entity.Book;
@@ -24,6 +26,7 @@ import com.yourteam.library.service.UserService;
 import library_api.dto.ApiResponse;
 import library_api.dto.AdminUserDetailResponse;
 import library_api.dto.UserResponse;
+import library_api.dto.UpdateRoleLevelRequest;
 import com.yourteam.library.repository.UserRepository;
 import java.util.HashMap;
 import java.util.Map;
@@ -73,6 +76,27 @@ public class AdminUserController {
             return new ApiResponse<>(true, true, "已停權");
         }
         return new ApiResponse<>(false, null, "停權失敗或找不到使用者");
+    }
+
+    @PutMapping("/{studentId}/role-level")
+    public ApiResponse<Boolean> updateRoleLevel(
+            @PathVariable String studentId,
+            @RequestBody UpdateRoleLevelRequest request) {
+        User user = userRepository.findByStudentNo(studentId);
+        if (user == null) {
+            return new ApiResponse<>(false, null, "找不到使用者");
+        }
+
+        String roleLevel = request.getRoleLevel() == null ? "" : request.getRoleLevel().trim().toUpperCase();
+        if (!"NORMAL".equals(roleLevel) && !"VIP".equals(roleLevel)) {
+            return new ApiResponse<>(false, null, "會員等級只能是 NORMAL 或 VIP");
+        }
+
+        boolean success = userRepository.updateRoleLevelByStudentNo(studentId, roleLevel);
+        if (!success) {
+            return new ApiResponse<>(false, null, "會員等級更新失敗");
+        }
+        return new ApiResponse<>(true, true, "會員等級已更新為 " + roleLevel);
     }
 
 

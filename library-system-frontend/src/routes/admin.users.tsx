@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Ban, CheckCircle2 } from "lucide-react";
+import { Ban, CheckCircle2, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SearchBar } from "@/components/common/SearchBar";
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
 import { useAsync } from "@/hooks/useAsync";
-import { searchUsers, handleSuspendUser, handleActivateUser, getUserDetail, type AdminUserDetail } from "@/services/adminService";
+import { searchUsers, handleSuspendUser, handleActivateUser, getUserDetail, updateUserRoleLevel, type AdminUserDetail } from "@/services/adminService";
 
 export const Route = createFileRoute("/admin/users")({
   head: () => ({ meta: [{ title: "使用者管理 — 圖書館借還書系統" }] }),
@@ -56,6 +56,26 @@ function AdminUsersPage() {
     }
   };
 
+  const onChangeRoleLevel = async (studentId: string, currentLevel: "NORMAL" | "VIP") => {
+    const nextLevel = currentLevel === "VIP" ? "NORMAL" : "VIP";
+    const message = nextLevel === "VIP"
+      ? "確認將此使用者升級為 VIP？"
+      : "確認將此使用者降為一般會員？";
+    if (!window.confirm(message)) return;
+
+    setActingId(studentId);
+    try {
+      const response = await updateUserRoleLevel(studentId, nextLevel);
+      toast.success(response.message || "會員等級更新成功");
+      if (detail?.studentId === studentId) setDetail(null);
+      await refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "會員等級更新失敗");
+    } finally {
+      setActingId(null);
+    }
+  };
+
   return (
     <>
       <PageHeader title="使用者管理" description="管理使用者帳號狀態。" />
@@ -81,7 +101,7 @@ function AdminUsersPage() {
                   <TableHead>姓名</TableHead>
                   <TableHead className="w-[120px]">等級</TableHead>
                   <TableHead className="w-[100px]">狀態</TableHead>
-                  <TableHead className="w-[220px] text-right">操作</TableHead>
+                  <TableHead className="w-[340px] text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -92,10 +112,19 @@ function AdminUsersPage() {
                     <TableCell>{u.level === "VIP" ? "VIP" : "一般"}</TableCell>
                     <TableCell><StatusBadge status={u.status} /></TableCell>
                     <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={actingId === u.studentId}
+                        onClick={() => onChangeRoleLevel(u.studentId, u.level)}
+                      >
+                        <Crown className="mr-1 h-4 w-4" />
+                        {u.level === "VIP" ? "降為一般" : "升級 VIP"}
+                      </Button>
                       {u.status === "ACTIVE" ? (
                         <Button
                           variant="outline" size="sm"
-                          className="text-destructive hover:text-destructive"
+                          className="ml-1 text-destructive hover:text-destructive"
                           disabled={actingId === u.studentId}
                           onClick={() => onToggle(u.studentId, true)}
                         >
@@ -105,6 +134,7 @@ function AdminUsersPage() {
                       ) : (
                         <Button
                           variant="outline" size="sm"
+                          className="ml-1"
                           disabled={actingId === u.studentId}
                           onClick={() => onToggle(u.studentId, false)}
                         >

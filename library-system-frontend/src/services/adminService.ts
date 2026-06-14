@@ -115,6 +115,22 @@ export async function handleActivateUser(studentId: string): Promise<ApiResponse
   }
 }
 
+export async function updateUserRoleLevel(
+  studentId: string,
+  roleLevel: "NORMAL" | "VIP",
+): Promise<ApiResponse<boolean>> {
+  try {
+    const response = await http.put<boolean>(`/admin/users/${studentId}/role-level`, { roleLevel });
+    if (!response.success) {
+      throw new ApiError(response.message || "會員等級更新失敗");
+    }
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("會員等級更新失敗");
+  }
+}
+
 export interface BorrowSearchParams {
   keyword?: string;
   status?: BorrowRecord["status"] | "ALL";
@@ -123,7 +139,7 @@ export interface BorrowSearchParams {
 export interface AdminUserDetail {
   studentId: string;
   name: string;
-  level: string;
+  level: "NORMAL" | "VIP";
   status: string;
   favoriteCount: number;
   reviewCount: number;
