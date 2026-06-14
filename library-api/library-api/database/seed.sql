@@ -1,12 +1,7 @@
 USE library_system;
 
-INSERT INTO admins (username, password)
-VALUES ('admin', '0000')
-ON DUPLICATE KEY UPDATE
-password = VALUES(password),
-updated_at = CURRENT_TIMESTAMP;
-
-
+-- 僅保留系統運作所需的展示設定。
+-- 不在版本庫中建立管理員或使用者帳號，避免提交可登入的預設憑證或個人資料。
 INSERT INTO loan_policies (role_level, max_active_loans, overdue_fine_per_day, reservation_priority, fine_grace_days)
 VALUES
 ('NORMAL', 3, 5.00, 1, 0),
@@ -16,18 +11,3 @@ max_active_loans = VALUES(max_active_loans),
 overdue_fine_per_day = VALUES(overdue_fine_per_day),
 reservation_priority = VALUES(reservation_priority),
 fine_grace_days = VALUES(fine_grace_days);
-
-INSERT IGNORE INTO favorites (user_id, book_id)
-SELECT DISTINCT br.user_id, br.book_id
-FROM borrow_records br
-WHERE br.user_id IS NOT NULL AND br.book_id IS NOT NULL
-LIMIT 20;
-
-INSERT INTO reviews (user_id, book_id, borrow_record_id, rating, comment)
-SELECT br.user_id, br.book_id, br.record_id,
-       CASE WHEN br.return_date IS NULL THEN 4 ELSE 5 END AS rating,
-       CASE WHEN br.return_date IS NULL THEN '閱讀中，先給個好評' ELSE '已讀完，內容不錯' END AS comment
-FROM borrow_records br
-LEFT JOIN reviews r ON r.borrow_record_id = br.record_id
-WHERE r.review_id IS NULL
-LIMIT 20;

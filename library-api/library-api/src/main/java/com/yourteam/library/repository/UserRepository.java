@@ -128,6 +128,19 @@ public class UserRepository {
         // 更新失敗時回傳 false
         return false;
     }
+
+    public boolean updateRoleLevelByStudentNo(String studentNo, String roleLevel) {
+        String sql = "UPDATE users SET role_level = ? WHERE student_no = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, roleLevel);
+            pstmt.setString(2, studentNo);
+            return pstmt.executeUpdate() > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
     
     
     

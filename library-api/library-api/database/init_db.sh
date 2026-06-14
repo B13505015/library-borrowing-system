@@ -2,15 +2,14 @@
 set -euo pipefail
 
 # Usage:
-#   DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASS=你的密碼 ./scripts/init_db.sh
+#   DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASS=你的密碼 ./database/init_db.sh
 
 DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_PORT="${DB_PORT:-3306}"
 DB_USER="${DB_USER:-root}"
 DB_PASS="${DB_PASS:-}"
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-API_DIR="$ROOT_DIR/library-api/library-api"
+API_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SCHEMA_SQL="$API_DIR/database/schema.sql"
 SEED_SQL="$API_DIR/database/seed.sql"
 
