@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import com.yourteam.library.repository.BookRepository;
+import com.yourteam.library.repository.BookIsbnRepository;
 
 import library_api.dto.AddBookRequest;
 
@@ -41,12 +42,14 @@ public class BookController {
     private final BookRepository bookRepository;
     private final ReservationRepository reservationRepository;
     private final BorrowRecordRepository borrowRecordRepository;
+    private final BookIsbnRepository bookIsbnRepository;
 
     public BookController() {
         this.bookService = new BookService();
         this.bookRepository = new BookRepository();
         this.reservationRepository = new ReservationRepository();
         this.borrowRecordRepository = new BorrowRecordRepository();
+        this.bookIsbnRepository = new BookIsbnRepository();
     }
 
     // 查詢全部書籍
@@ -65,6 +68,15 @@ public class BookController {
         List<BookResponse> responseList = convertToBookResponseList(books);
 
         return new ApiResponse<>(true, responseList, "搜尋書籍成功");
+    }
+
+    @GetMapping("/{bookId}")
+    public ApiResponse<BookResponse> getBookDetail(@PathVariable int bookId) {
+        Book book = bookService.getBookById(bookId);
+        if (book == null) {
+            return new ApiResponse<>(false, null, "找不到書籍");
+        }
+        return new ApiResponse<>(true, convertToBookResponse(book), "查詢書籍詳情成功");
     }
 
 
@@ -119,21 +131,27 @@ public class BookController {
         List<BookResponse> responseList = new ArrayList<>();
 
         for (Book book : books) {
-            BookResponse response = new BookResponse(
-                    book.getBookId(),
-                    book.getTitle(),
-                    book.getPublisher(),
-                    book.getPublishYear(),
-                    book.getEdition(),
-                    book.getFormat(),
-                    book.getSource(),
-                    book.getNote(),
-                    book.getStatus()
-            );
-            responseList.add(response);
+            responseList.add(convertToBookResponse(book));
         }
 
         return responseList;
+    }
+
+    private BookResponse convertToBookResponse(Book book) {
+        return new BookResponse(
+                book.getBookId(),
+                book.getTitle(),
+                book.getAuthors(),
+                book.getSubjects(),
+                bookIsbnRepository.findIsbnsByBookId(book.getBookId()),
+                book.getPublisher(),
+                book.getPublishYear(),
+                book.getEdition(),
+                book.getFormat(),
+                book.getSource(),
+                book.getNote(),
+                book.getStatus()
+        );
     }
     
     @PostMapping
@@ -143,6 +161,8 @@ public class BookController {
 
         Book book = new Book();
         book.setTitle(request.getTitle());
+        book.setAuthors(request.getAuthors());
+        book.setSubjects(request.getSubjects());
         book.setPublisher(request.getPublisher());
         book.setPublishYear(request.getPublishYear());
         book.setEdition(request.getEdition());
@@ -154,6 +174,9 @@ public class BookController {
         int newBookId = bookRepository.insertBook(book, LocalDateTime.now());
 
         if (newBookId > 0) {
+            if (!bookIsbnRepository.replaceIsbns(newBookId, request.getIsbns())) {
+                return new ApiResponse<>(false, null, "新增書籍成功，但 ISBN 儲存失敗");
+            }
             return new ApiResponse<>(true, true, "新增書籍成功");
         }
 
@@ -171,6 +194,8 @@ public class BookController {
         }
 
         existingBook.setTitle(request.getTitle());
+        existingBook.setAuthors(request.getAuthors());
+        existingBook.setSubjects(request.getSubjects());
         existingBook.setPublisher(request.getPublisher());
         existingBook.setPublishYear(request.getPublishYear());
         existingBook.setEdition(request.getEdition());
@@ -181,6 +206,9 @@ public class BookController {
         boolean success = bookRepository.updateBook(existingBook);
 
         if (success) {
+            if (!bookIsbnRepository.replaceIsbns(bookId, request.getIsbns())) {
+                return new ApiResponse<>(false, null, "書籍資料已更新，但 ISBN 更新失敗");
+            }
             return new ApiResponse<>(true, true, "更新書籍成功");
         }
 

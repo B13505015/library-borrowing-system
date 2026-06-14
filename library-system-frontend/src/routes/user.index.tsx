@@ -61,10 +61,10 @@ function UserDashboardPage() {
         ));
       }
       setDetail(latestBook ?? {
-        id: String(bookId), title, publisher: "", publishYear: 0, edition: "", format: "", source: "", note: "", status,
+        id: String(bookId), title, authors: "", subjects: "", isbns: [], publisher: "", publishYear: 0, edition: "", format: "", source: "", note: "", status,
       } as Book);
     } catch {
-      setDetail({ id: String(bookId), title, publisher: "", publishYear: 0, edition: "", format: "", source: "", note: "", status } as Book);
+      setDetail({ id: String(bookId), title, authors: "", subjects: "", isbns: [], publisher: "", publishYear: 0, edition: "", format: "", source: "", note: "", status } as Book);
     }
   };
 

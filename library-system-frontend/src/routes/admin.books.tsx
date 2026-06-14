@@ -42,6 +42,9 @@ export const Route = createFileRoute("/admin/books")({
 
 const EMPTY_FORM: BookFormValues = {
   title: "",
+  authors: "",
+  subjects: "",
+  isbns: [],
   publisher: "",
   publishYear: new Date().getFullYear(),
   edition: "",
@@ -140,7 +143,7 @@ function AdminBooksPage() {
 
       <Card className="mb-4">
         <CardContent className="p-4">
-          <SearchBar placeholder="搜尋書名、出版社、編號..." defaultValue={keyword} onSearch={setKeyword} />
+          <SearchBar placeholder="搜尋書名、作者、主題、出版社、ISBN 或編號..." defaultValue={keyword} onSearch={setKeyword} />
         </CardContent>
       </Card>
 
@@ -255,6 +258,18 @@ function AdminBooksPage() {
                   <div>
                     <p className="text-xs text-muted-foreground">館藏 ID</p>
                     <p className="mt-1">{detail.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">作者</p>
+                    <p className="mt-1">{detail.authors || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">主題</p>
+                    <p className="mt-1">{detail.subjects || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">ISBN</p>
+                    <p className="mt-1">{detail.isbns.length > 0 ? detail.isbns.join("、") : "—"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">出版社</p>
@@ -416,7 +431,7 @@ function BookFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -426,6 +441,27 @@ function BookFormDialog({
             <Input
               value={values.title}
               onChange={(e) => update("title", e.target.value)}
+            />
+          </FormField>
+
+          <FormField label="作者（多位請以逗號分隔）" className="col-span-2">
+            <Input
+              value={values.authors}
+              onChange={(e) => update("authors", e.target.value)}
+            />
+          </FormField>
+
+          <FormField label="主題（多個請以逗號分隔）" className="col-span-2">
+            <Input
+              value={values.subjects}
+              onChange={(e) => update("subjects", e.target.value)}
+            />
+          </FormField>
+
+          <FormField label="ISBN（多筆請以逗號分隔）" className="col-span-2">
+            <Input
+              value={values.isbns.join(", ")}
+              onChange={(e) => update("isbns", e.target.value.split(","))}
             />
           </FormField>
 

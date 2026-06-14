@@ -13,7 +13,13 @@ function normalizeBookStatus(status: string): Book["status"] {
 }
 
 function normalizeBooks(books: Book[]): Book[] {
-  return books.map((book) => ({ ...book, status: normalizeBookStatus(String(book.status ?? "")) }));
+  return books.map((book) => ({
+    ...book,
+    authors: book.authors ?? "",
+    subjects: book.subjects ?? "",
+    isbns: Array.isArray(book.isbns) ? book.isbns : [],
+    status: normalizeBookStatus(String(book.status ?? "")),
+  }));
 }
 
 export type PopularBook = {
@@ -69,11 +75,25 @@ export async function searchBooks(keyword = ""): Promise<ApiResponse<Book[]>> {
   }
 }
 
+export async function getBookDetail(bookId: string | number): Promise<ApiResponse<Book>> {
+  try {
+    const response = await http.get<Book>(`/books/${bookId}`);
+    if (!response.success || !response.data) throw new ApiError(response.message || "查詢書籍詳情失敗");
+    return { ...response, data: normalizeBooks([response.data])[0] };
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("查詢書籍詳情失敗");
+  }
+}
+
 // 管理端新增 / 編輯 / 下架書籍：已接真後端 API
 export async function handleAddBook(values: BookFormValues): Promise<ApiResponse<boolean>> {
   try {
     const response = await http.post<boolean>("/books", {
       title: values.title,
+      authors: values.authors,
+      subjects: values.subjects,
+      isbns: values.isbns,
       publisher: values.publisher,
       publishYear: values.publishYear,
       edition: values.edition,
@@ -99,6 +119,9 @@ export async function handleEditBook(id: string, values: BookFormValues): Promis
   try {
     const response = await http.put<boolean>(`/books/${id}`, {
       title: values.title,
+      authors: values.authors,
+      subjects: values.subjects,
+      isbns: values.isbns,
       publisher: values.publisher,
       publishYear: values.publishYear,
       edition: values.edition,

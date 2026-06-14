@@ -112,12 +112,12 @@ function SearchBooksPage() {
 
   return (
     <>
-      <PageHeader title="查詢書籍" description="輸入關鍵字搜尋書名、出版社或書籍編號。" />
+      <PageHeader title="查詢書籍" description="輸入關鍵字搜尋完整館藏資料。" />
 
       <Card className="mb-4">
         <CardContent className="p-4">
           <SearchBar
-            placeholder="搜尋書名、出版社、編號..."
+            placeholder="搜尋書名、作者、主題、出版社、ISBN 或編號..."
             defaultValue={keyword}
             onSearch={setKeyword}
           />
@@ -156,7 +156,7 @@ function SearchBooksPage() {
                   return (
                   <TableRow key={b.id}>
                     <TableCell className="font-mono text-xs">{b.id}</TableCell>
-                    <TableCell className="font-medium">{b.title}</TableCell>
+                    <TableCell><p className="font-medium">{b.title}</p><p className="text-xs text-muted-foreground">{b.authors || "—"}</p></TableCell>
                     <TableCell>{b.publisher}</TableCell>
                     <TableCell>{b.publishYear}</TableCell>
                     <TableCell>

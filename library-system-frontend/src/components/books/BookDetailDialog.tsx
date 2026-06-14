@@ -9,7 +9,7 @@ import {
 import { bookActionClass, getBookAction } from "@/lib/bookAction";
 import { formatDate } from "@/lib/format";
 import { borrowBook } from "@/services/borrowService";
-import { getBookBorrowHistory, getReservationInfo, type ReservationInfo } from "@/services/bookService";
+import { getBookBorrowHistory, getBookDetail, getReservationInfo, type ReservationInfo } from "@/services/bookService";
 import { fulfillReservation, reserveBook } from "@/services/reservationService";
 import { getBookReviews } from "@/services/reviewService";
 import type { Book } from "@/types/book";
@@ -29,18 +29,22 @@ export function BookDetailDialog({ book, user, open, onOpenChange, onUpdated }: 
   const [history, setHistory] = useState<BorrowRecord[]>([]);
   const [reviews, setReviews] = useState<string[]>([]);
   const [reservationInfo, setReservationInfo] = useState<ReservationInfo | null>(null);
+  const [latestBook, setLatestBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open || !book) return;
     setBorrowDays(user?.level === "VIP" ? 14 : 7);
+    setLatestBook(null);
     setLoading(true);
     Promise.all([
+      getBookDetail(book.id),
       getBookBorrowHistory(book.id),
       getBookReviews(Number(book.id)),
       user ? getReservationInfo(book.id, user.userId) : Promise.resolve(null),
-    ]).then(([historyRes, reviewRes, reservationRes]) => {
+    ]).then(([bookRes, historyRes, reviewRes, reservationRes]) => {
+      setLatestBook(bookRes.data);
       setHistory(historyRes.data);
       setReviews(reviewRes.data);
       setReservationInfo(reservationRes?.data ?? null);
@@ -52,9 +56,10 @@ export function BookDetailDialog({ book, user, open, onOpenChange, onUpdated }: 
   }, [book, open, user]);
 
   if (!book) return null;
+  const displayBook = latestBook ?? book;
 
   const action = getBookAction(
-    book.status,
+    displayBook.status,
     !!reservationInfo?.alreadyBorrowing,
     reservationInfo?.activeReservationStatus,
     reservationInfo?.canBorrowNotified ?? false,
@@ -68,14 +73,14 @@ export function BookDetailDialog({ book, user, open, onOpenChange, onUpdated }: 
       if (
         reservationInfo?.activeReservationStatus === "NOTIFIED"
         && reservationInfo.canBorrowNotified
-        && book.status === "AVAILABLE"
+        && displayBook.status === "AVAILABLE"
         && reservationInfo.reservationId
       ) {
         await fulfillReservation(user.userId, reservationInfo.reservationId, borrowDays);
-      } else if (book.status === "BORROWED") {
-        await reserveBook(user.userId, Number(book.id));
+      } else if (displayBook.status === "BORROWED") {
+        await reserveBook(user.userId, Number(displayBook.id));
       } else {
-        await borrowBook(user.userId, Number(book.id), borrowDays);
+        await borrowBook(user.userId, Number(displayBook.id), borrowDays);
       }
       toast.success(action.label === "預約" ? "預約成功" : "借閱成功");
       await onUpdated?.();
@@ -91,18 +96,21 @@ export function BookDetailDialog({ book, user, open, onOpenChange, onUpdated }: 
     <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden p-0">
       <div className="flex max-h-[85vh] flex-col">
         <div className="border-b bg-background px-6 py-4">
-          <DialogHeader><DialogTitle className="truncate pr-8">{book.title}</DialogTitle><DialogDescription>編號 {book.id}</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle className="truncate pr-8">{displayBook.title}</DialogTitle><DialogDescription>編號 {displayBook.id}</DialogDescription></DialogHeader>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-            <DT label="出版社" value={book.publisher || "—"} /><DT label="出版年" value={book.publishYear ? String(book.publishYear) : "—"} />
-            <DT label="版本" value={book.edition || "—"} /><DT label="格式" value={book.format || "—"} />
-            <DT label="資料來源" value={book.source || "—"} /><DT label="狀態" value={<StatusBadge status={book.status} />} />
-            <div className="col-span-2"><dt className="text-xs text-muted-foreground">附註</dt><dd className="mt-1">{book.note || "—"}</dd></div>
+            <div className="col-span-2"><dt className="text-xs text-muted-foreground">作者</dt><dd className="mt-1">{displayBook.authors || "—"}</dd></div>
+            <div className="col-span-2"><dt className="text-xs text-muted-foreground">主題</dt><dd className="mt-1">{displayBook.subjects || "—"}</dd></div>
+            <div className="col-span-2"><dt className="text-xs text-muted-foreground">ISBN</dt><dd className="mt-1">{displayBook.isbns.length > 0 ? displayBook.isbns.join("、") : "—"}</dd></div>
+            <DT label="出版社" value={displayBook.publisher || "—"} /><DT label="出版年" value={displayBook.publishYear ? String(displayBook.publishYear) : "—"} />
+            <DT label="版本" value={displayBook.edition || "—"} /><DT label="格式" value={displayBook.format || "—"} />
+            <DT label="資料來源" value={displayBook.source || "—"} /><DT label="狀態" value={<StatusBadge status={displayBook.status} />} />
+            <div className="col-span-2"><dt className="text-xs text-muted-foreground">附註</dt><dd className="mt-1">{displayBook.note || "—"}</dd></div>
           </dl>
           {reservationInfo && <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
             目前預約人數：{reservationInfo.waitingCount} 人
-            {reservationInfo.activeReservationStatus === "NOTIFIED" && reservationInfo.canBorrowNotified && book.status === "AVAILABLE"
+            {reservationInfo.activeReservationStatus === "NOTIFIED" && reservationInfo.canBorrowNotified && displayBook.status === "AVAILABLE"
               ? "｜你的預約已到書"
               : reservationInfo.activeReservationStatus === "NOTIFIED"
                 ? "｜書籍目前已借出，請重新預約或等待狀態更新"
