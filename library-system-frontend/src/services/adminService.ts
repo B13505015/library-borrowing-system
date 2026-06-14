@@ -10,6 +10,25 @@ export interface DashboardStats {
   overdueCount: number;
 }
 
+export interface SubjectBorrowStat {
+  subject: string;
+  borrowCount: number;
+  percentage: number;
+}
+
+export async function getSubjectBorrowStats(): Promise<ApiResponse<SubjectBorrowStat[]>> {
+  try {
+    const response = await http.get<SubjectBorrowStat[]>("/admin/statistics/subjects");
+    if (!response.success || !response.data) {
+      throw new ApiError(response.message || "查詢主題借閱統計失敗");
+    }
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("查詢主題借閱統計失敗");
+  }
+}
+
 export async function fetchDashboardStats(): Promise<ApiResponse<DashboardStats>> {
   try {
     const response = await http.get<DashboardStats>("/admin/dashboard/stats");
@@ -115,6 +134,22 @@ export async function handleActivateUser(studentId: string): Promise<ApiResponse
   }
 }
 
+export async function updateUserRoleLevel(
+  studentId: string,
+  roleLevel: "NORMAL" | "VIP",
+): Promise<ApiResponse<boolean>> {
+  try {
+    const response = await http.put<boolean>(`/admin/users/${studentId}/role-level`, { roleLevel });
+    if (!response.success) {
+      throw new ApiError(response.message || "會員等級更新失敗");
+    }
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError("會員等級更新失敗");
+  }
+}
+
 export interface BorrowSearchParams {
   keyword?: string;
   status?: BorrowRecord["status"] | "ALL";
@@ -123,11 +158,21 @@ export interface BorrowSearchParams {
 export interface AdminUserDetail {
   studentId: string;
   name: string;
-  level: string;
+  level: "NORMAL" | "VIP";
   status: string;
   favoriteCount: number;
   reviewCount: number;
-  borrowRecords: Array<{ recordId: number; bookId: number; borrowDate: string; dueDate: string; returnDate: string | null }>;
+  borrowRecords: Array<{
+    recordId: number;
+    bookId: number;
+    bookTitle: string;
+    borrowDate: string;
+    dueDate: string;
+    returnDate: string | null;
+    status: "BORROWED" | "RETURNED" | "OVERDUE";
+    overdueDays: number;
+    fineAmount: number;
+  }>;
 }
 
 export async function getUserDetail(studentId: string): Promise<ApiResponse<AdminUserDetail>> {

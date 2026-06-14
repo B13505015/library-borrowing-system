@@ -27,6 +27,20 @@ public class BorrowService {
         return borrowDays == 1 || borrowDays == 3 || borrowDays == 7;
     }
 
+    public String fulfillReservation(int userId, int reservationId, int borrowDays) {
+        User user = findUserById(userId);
+        if (user == null) return "USER_NOT_FOUND";
+        if ("SUSPENDED".equalsIgnoreCase(user.getStatus())) return "USER_SUSPENDED";
+        if (!isAllowedBorrowDays(user.getRoleLevel(), borrowDays)) return "BORROW_DAYS_NOT_ALLOWED";
+
+        int maxActiveLoans = userRepository.findMaxActiveLoansByRoleLevel(user.getRoleLevel());
+        if (borrowRecordRepository.countActiveBorrowsByUserId(userId) >= maxActiveLoans) {
+            return "BORROW_LIMIT_REACHED";
+        }
+
+        return reservationRepository.fulfillNotifiedReservation(reservationId, userId, borrowDays);
+    }
+
     // 建構子（constructor）
     public BorrowService() {
         this.userRepository = new UserRepository();

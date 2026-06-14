@@ -7,6 +7,8 @@ public class Book {
 
     // 書名
     private String title;
+    private String authors;
+    private String subjects;
 
     // 出版社
     private String publisher;
@@ -34,10 +36,12 @@ public class Book {
     }
 
     // 全欄位建構子（All-args constructor）
-    public Book(int bookId, String title, String publisher, int publishYear,
+    public Book(int bookId, String title, String authors, String subjects, String publisher, int publishYear,
                 String edition, String format, String source, String note, String status) {
         this.bookId = bookId;
         this.title = title;
+        this.authors = authors;
+        this.subjects = subjects;
         this.publisher = publisher;
         this.publishYear = publishYear;
         this.edition = edition;
@@ -63,6 +67,22 @@ public class Book {
 
     public void setTitle(String title) {
         this.title = title;
+    }
+
+    public String getAuthors() {
+        return authors;
+    }
+
+    public void setAuthors(String authors) {
+        this.authors = authors;
+    }
+
+    public String getSubjects() {
+        return subjects;
+    }
+
+    public void setSubjects(String subjects) {
+        this.subjects = subjects;
     }
 
     public String getPublisher() {
