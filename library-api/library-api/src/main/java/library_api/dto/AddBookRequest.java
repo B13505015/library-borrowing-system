@@ -1,9 +1,14 @@
 package library_api.dto;
 
+import java.util.List;
+
 // 前端送來的新增書籍資料
 public class AddBookRequest {
 
     private String title;
+    private String authors;
+    private String subjects;
+    private List<String> isbns;
     private String publisher;
     private int publishYear;
     private String edition;
@@ -21,6 +26,13 @@ public class AddBookRequest {
     public void setTitle(String title) {
         this.title = title;
     }
+
+    public String getAuthors() { return authors; }
+    public void setAuthors(String authors) { this.authors = authors; }
+    public String getSubjects() { return subjects; }
+    public void setSubjects(String subjects) { this.subjects = subjects; }
+    public List<String> getIsbns() { return isbns; }
+    public void setIsbns(List<String> isbns) { this.isbns = isbns; }
 
     public String getPublisher() {
         return publisher;

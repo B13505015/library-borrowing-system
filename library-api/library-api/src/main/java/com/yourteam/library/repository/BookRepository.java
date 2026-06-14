@@ -38,6 +38,8 @@ public class BookRepository {
                 // 將資料表欄位塞進 Book 物件
                 book.setBookId(rs.getInt("book_id"));
                 book.setTitle(rs.getString("title"));
+                book.setAuthors(rs.getString("authors"));
+                book.setSubjects(rs.getString("subjects"));
                 book.setPublisher(rs.getString("publisher"));
                 book.setPublishYear(rs.getInt("publish_year"));
                 book.setEdition(rs.getString("edition"));
@@ -84,6 +86,8 @@ public class BookRepository {
 
                 book.setBookId(rs.getInt("book_id"));
                 book.setTitle(rs.getString("title"));
+                book.setAuthors(rs.getString("authors"));
+                book.setSubjects(rs.getString("subjects"));
                 book.setPublisher(rs.getString("publisher"));
                 book.setPublishYear(rs.getInt("publish_year"));
                 book.setEdition(rs.getString("edition"));
@@ -142,8 +146,8 @@ public class BookRepository {
     public int insertBook(Book book, java.time.LocalDateTime createdAt) {
 
         // SQL：新增 books 資料
-        String sql = "INSERT INTO books (title, publisher, publish_year, edition, format_desc, source, note, status, created_at) "
-                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO books (title, authors, subjects, publisher, publish_year, edition, format_desc, source, note, status, created_at) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (
             // 建立資料庫連線
@@ -154,14 +158,16 @@ public class BookRepository {
         ) {
             // 設定 SQL 參數
             pstmt.setString(1, book.getTitle());
-            pstmt.setString(2, book.getPublisher());
-            pstmt.setInt(3, book.getPublishYear());
-            pstmt.setString(4, book.getEdition());
-            pstmt.setString(5, book.getFormat());
-            pstmt.setString(6, book.getSource());
-            pstmt.setString(7, book.getNote());
-            pstmt.setString(8, book.getStatus());
-            pstmt.setTimestamp(9, java.sql.Timestamp.valueOf(createdAt));
+            pstmt.setString(2, book.getAuthors());
+            pstmt.setString(3, book.getSubjects());
+            pstmt.setString(4, book.getPublisher());
+            pstmt.setInt(5, book.getPublishYear());
+            pstmt.setString(6, book.getEdition());
+            pstmt.setString(7, book.getFormat());
+            pstmt.setString(8, book.getSource());
+            pstmt.setString(9, book.getNote());
+            pstmt.setString(10, book.getStatus());
+            pstmt.setTimestamp(11, java.sql.Timestamp.valueOf(createdAt));
 
             // 執行新增
             int affectedRows = pstmt.executeUpdate();
@@ -192,14 +198,14 @@ public class BookRepository {
         List<Book> bookList = new ArrayList<>();
 
         // SQL：使用 LIKE 做模糊搜尋
-        String sql = "SELECT * FROM books "
-                + "WHERE status <> 'REMOVED' AND ("
-                + "title LIKE ? "
-                + "OR publisher LIKE ? "
-                + "OR edition LIKE ? "
-                + "OR format_desc LIKE ? "
-                + "OR source LIKE ? "
-                + "OR note LIKE ?)";
+        String sql = "SELECT DISTINCT b.* FROM books b "
+                + "WHERE b.status <> 'REMOVED' AND ("
+                + "b.title LIKE ? "
+                + "OR b.authors LIKE ? "
+                + "OR b.subjects LIKE ? "
+                + "OR b.publisher LIKE ? "
+                + "OR CAST(b.book_id AS CHAR) LIKE ? "
+                + "OR EXISTS (SELECT 1 FROM book_isbns bi WHERE bi.book_id = b.book_id AND bi.isbn LIKE ?))";
 
         try (
             // 建立資料庫連線
@@ -228,6 +234,8 @@ public class BookRepository {
 
                 book.setBookId(rs.getInt("book_id"));
                 book.setTitle(rs.getString("title"));
+                book.setAuthors(rs.getString("authors"));
+                book.setSubjects(rs.getString("subjects"));
                 book.setPublisher(rs.getString("publisher"));
                 book.setPublishYear(rs.getInt("publish_year"));
                 book.setEdition(rs.getString("edition"));
@@ -252,7 +260,7 @@ public class BookRepository {
  // 根據 bookId 更新書籍資料
     public boolean updateBook(Book book) {
 
-        String sql = "UPDATE books SET title = ?, publisher = ?, publish_year = ?, edition = ?, format_desc = ?, source = ?, note = ? "
+        String sql = "UPDATE books SET title = ?, authors = ?, subjects = ?, publisher = ?, publish_year = ?, edition = ?, format_desc = ?, source = ?, note = ? "
                    + "WHERE book_id = ?";
 
         try (
@@ -260,13 +268,15 @@ public class BookRepository {
             PreparedStatement pstmt = conn.prepareStatement(sql)
         ) {
             pstmt.setString(1, book.getTitle());
-            pstmt.setString(2, book.getPublisher());
-            pstmt.setInt(3, book.getPublishYear());
-            pstmt.setString(4, book.getEdition());
-            pstmt.setString(5, book.getFormat());
-            pstmt.setString(6, book.getSource());
-            pstmt.setString(7, book.getNote());
-            pstmt.setInt(8, book.getBookId());
+            pstmt.setString(2, book.getAuthors());
+            pstmt.setString(3, book.getSubjects());
+            pstmt.setString(4, book.getPublisher());
+            pstmt.setInt(5, book.getPublishYear());
+            pstmt.setString(6, book.getEdition());
+            pstmt.setString(7, book.getFormat());
+            pstmt.setString(8, book.getSource());
+            pstmt.setString(9, book.getNote());
+            pstmt.setInt(10, book.getBookId());
 
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0;
@@ -328,7 +338,7 @@ public List<PopularBookResponse> findPopularBooks(String sortBy, int limit) {
         }
         String sql = "SELECT COALESCE(av.available_book_id, bo.borrowed_book_id) AS book_id, stats.title, "
                 + "stats.borrow_count, stats.avg_rating, stats.review_count, "
-                + "CASE WHEN stats.available_count > 0 THEN 'AVAILABLE' ELSE 'BORROWED' END AS status "
+                + "selected_book.status AS status "
                 + "FROM ( "
                 + "  SELECT b.title, COUNT(DISTINCT br.record_id) AS borrow_count, SUM(CASE WHEN b.status = 'AVAILABLE' THEN 1 ELSE 0 END) AS available_count, "
                 + "         COALESCE(AVG(r.rating), 0) AS avg_rating, COUNT(DISTINCT r.review_id) AS review_count "
@@ -340,6 +350,7 @@ public List<PopularBookResponse> findPopularBooks(String sortBy, int limit) {
                 + ") stats "
                 + "LEFT JOIN (SELECT title, MIN(book_id) AS available_book_id FROM books WHERE status = 'AVAILABLE' GROUP BY title) av ON av.title = stats.title "
                 + "LEFT JOIN (SELECT title, MIN(book_id) AS borrowed_book_id FROM books WHERE status = 'BORROWED' GROUP BY title) bo ON bo.title = stats.title "
+                + "JOIN books selected_book ON selected_book.book_id = COALESCE(av.available_book_id, bo.borrowed_book_id) "
                 + "ORDER BY " + orderBy + " LIMIT ?";
 
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {

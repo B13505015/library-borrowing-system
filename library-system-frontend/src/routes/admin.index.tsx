@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { BookCopy, BookOpen, Users, AlertTriangle } from "lucide-react";
+import { AlertTriangle, BookCopy, BookOpen, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
@@ -36,81 +36,87 @@ function AdminDashboardPage() {
     return Array.from(map.values());
   }, [overdue.data]);
 
+  const statsContent = stats.loading ? (
+    <LoadingState />
+  ) : stats.error ? (
+    <ErrorState message={stats.error} onRetry={stats.refetch} />
+  ) : (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <StatCard label="總書籍數" value={stats.data?.totalBooks ?? 0} icon={BookCopy} tone="info" />
+      <StatCard label="借出中" value={stats.data?.borrowedCount ?? 0} icon={BookOpen} tone="default" />
+      <StatCard label="使用者數量" value={stats.data?.totalUsers ?? 0} icon={Users} tone="success" />
+      <StatCard label="逾期未還" value={stats.data?.overdueCount ?? 0} icon={AlertTriangle} tone="destructive" />
+    </div>
+  );
+
+  const recentContent = recent.loading ? (
+    <LoadingState />
+  ) : recent.error ? (
+    <ErrorState message={recent.error} onRetry={recent.refetch} />
+  ) : !recent.data || recent.data.length === 0 ? (
+    <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">暫無資料</p>
+  ) : (
+    <ul className="divide-y divide-border">
+      {recent.data.map((record) => (
+        <li key={record.id} className="flex items-center justify-between py-3">
+          <div>
+            <p className="font-medium">{record.bookTitle}</p>
+            <p className="text-xs text-muted-foreground">
+              {record.studentName}（{record.studentId}）　借閱：{formatDate(record.borrowDate)}
+            </p>
+          </div>
+          <StatusBadge status={record.status} />
+        </li>
+      ))}
+    </ul>
+  );
+
+  const overdueContent = overdue.loading ? (
+    <LoadingState />
+  ) : overdue.error ? (
+    <ErrorState message={overdue.error} onRetry={overdue.refetch} />
+  ) : uniqueOverdue.length === 0 ? (
+    <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">目前無逾期紀錄。</p>
+  ) : (
+    <ul className="max-h-[280px] space-y-1.5 overflow-y-auto pr-1">
+      {uniqueOverdue.map((record) => (
+        <li key={record.id} className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+          <p className="text-sm font-medium leading-tight text-destructive">{record.bookTitle}</p>
+          <p className="mt-0.5 text-xs leading-tight text-destructive/80">
+            {record.studentName}（{record.studentId}）｜到期 {formatDate(record.dueDate)}
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
-    <>
+    <main className="space-y-6">
       <PageHeader
         title="管理員總覽"
         description={`${user?.name ?? "管理員"}　|　最後更新：${formatDate(new Date().toISOString())}`}
       />
 
-      {stats.loading ? (
-        <LoadingState />
-      ) : stats.error ? (
-        <ErrorState message={stats.error} onRetry={stats.refetch} />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="總書籍數" value={stats.data?.totalBooks ?? 0} icon={BookCopy} tone="info" />
-          <StatCard label="借出中" value={stats.data?.borrowedCount ?? 0} icon={BookOpen} tone="default" />
-          <StatCard label="使用者數量" value={stats.data?.totalUsers ?? 0} icon={Users} tone="success" />
-          <StatCard label="逾期未還" value={stats.data?.overdueCount ?? 0} icon={AlertTriangle} tone="destructive" />
-        </div>
-      )}
+      {statsContent}
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-3">
-        <Card className="lg:col-span-2 border-0 bg-card/80 shadow-sm">
+      <section className="grid gap-5 lg:grid-cols-3">
+        <Card className="border-0 bg-card/80 shadow-sm lg:col-span-2">
           <CardContent className="p-6">
             <h2 className="mb-4 text-lg font-semibold">最近借閱活動</h2>
-            {recent.loading ? (
-              <LoadingState />
-            ) : recent.error ? (
-              <ErrorState message={recent.error} onRetry={recent.refetch} />
-            ) : !recent.data || recent.data.length === 0 ? (
-              <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">暫無資料</p>
-            ) : (
-              <ul className="divide-y divide-border">
-                {recent.data.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="font-medium">{r.bookTitle}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {r.studentName}（{r.studentId}）　借閱：{formatDate(r.borrowDate)}
-                      </p>
-                    </div>
-                    <StatusBadge status={r.status} />
-                  </li>
-                ))}
-              </ul>
-            )}
+            {recentContent}
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-card/80 shadow-sm">
+        <Card className="self-start border-0 bg-card/80 shadow-sm">
           <CardContent className="p-6">
             <div className="mb-4 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              <h2 className="text-lg font-semibold">逾期提醒</h2>
+              <h2 className="text-lg font-semibold">逾期提醒（{uniqueOverdue.length}）</h2>
             </div>
-            {overdue.loading ? (
-              <LoadingState />
-            ) : overdue.error ? (
-              <ErrorState message={overdue.error} onRetry={overdue.refetch} />
-            ) : uniqueOverdue.length === 0 ? (
-              <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">目前無逾期紀錄。</p>
-            ) : (
-              <ul className="space-y-2">
-                {uniqueOverdue.map((r) => (
-                  <li key={r.id} className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-                    <p className="text-sm font-medium text-destructive">{r.bookTitle}</p>
-                    <p className="text-xs text-destructive/80">
-                      {r.studentName}（{r.studentId}）｜到期 {formatDate(r.dueDate)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {overdueContent}
           </CardContent>
         </Card>
-      </div>
-    </>
+      </section>
+    </main>
   );
 }

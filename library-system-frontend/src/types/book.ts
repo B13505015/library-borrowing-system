@@ -3,6 +3,9 @@ export type BookStatus = "AVAILABLE" | "BORROWED" | "REMOVED";
 export interface Book {
   id: string;
   title: string;
+  authors: string;
+  subjects: string;
+  isbns: string[];
   publisher: string;
   publishYear: number;
   edition: string;
