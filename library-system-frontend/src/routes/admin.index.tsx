@@ -97,11 +97,11 @@ function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-card/80 shadow-sm">
+        <Card className="self-start border-0 bg-card/80 shadow-sm">
           <CardContent className="p-6">
             <div className="mb-4 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              <h2 className="text-lg font-semibold">逾期提醒</h2>
+              <h2 className="text-lg font-semibold">逾期提醒（{uniqueOverdue.length}）</h2>
             </div>
             {overdue.loading ? (
               <LoadingState />
@@ -110,11 +110,11 @@ function AdminDashboardPage() {
             ) : uniqueOverdue.length === 0 ? (
               <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">目前無逾期紀錄。</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="max-h-[280px] space-y-1.5 overflow-y-auto pr-1">
                 {uniqueOverdue.map((r) => (
-                  <li key={r.id} className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-                    <p className="text-sm font-medium text-destructive">{r.bookTitle}</p>
-                    <p className="text-xs text-destructive/80">
+                  <li key={r.id} className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+                    <p className="text-sm font-medium leading-tight text-destructive">{r.bookTitle}</p>
+                    <p className="mt-0.5 text-xs leading-tight text-destructive/80">
                       {r.studentName}（{r.studentId}）｜到期 {formatDate(r.dueDate)}
                     </p>
                   </li>
