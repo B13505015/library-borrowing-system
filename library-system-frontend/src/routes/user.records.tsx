@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Loader2, Undo2 } from "lucide-react";
+import { CreditCard, Loader2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -20,7 +20,7 @@ import {
 import { useAsync } from "@/hooks/useAsync";
 import { useAuth } from "@/context/AuthContext";
 import { getMyBorrowRecords, handleReturnBook } from "@/services/borrowService";
-import { getLoanPolicy } from "@/services/policyService";
+import { getMyPenalties, payPenalty } from "@/services/penaltyService";
 import { formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/user/records")({
@@ -31,37 +31,31 @@ export const Route = createFileRoute("/user/records")({
 function BorrowRecordsPage() {
   const { user } = useAuth();
   const [returningId, setReturningId] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<number | null>(null);
 
   // renderBorrowRecords
   const { data, loading, error, refetch } = useAsync(
-    () => getMyBorrowRecords(user!.studentId).then((r) => r.data),
+    async () => {
+      const [records, penalties] = await Promise.all([
+        getMyBorrowRecords(user!.studentId),
+        getMyPenalties(user!.studentId),
+      ]);
+      return { records: records.data, penalties: penalties.data };
+    },
     [user?.studentId],
   );
 
-
-  const { data: policyData } = useAsync(
-    () => getLoanPolicy(user?.level ?? "NORMAL").then((r) => r.data),
-    [user?.level],
+  const penaltiesByRecordId = useMemo(
+    () => new Map((data?.penalties ?? []).map((penalty) => [String(penalty.recordId), penalty])),
+    [data?.penalties],
   );
-
-  const finePerDay = useMemo(() => Number(policyData?.overdueFinePerDay ?? 0), [policyData]);
-  const fineGraceDays = useMemo(() => Number(policyData?.fineGraceDays ?? 0), [policyData]);
-
-  const estimateFine = (dueDate: string) => {
-    const due = new Date(dueDate).getTime();
-    if (!due || Number.isNaN(due)) return 0;
-    const now = Date.now();
-    const overdueDays = Math.floor((now - due) / (1000 * 60 * 60 * 24));
-    if (overdueDays <= fineGraceDays) return 0;
-    return (overdueDays - fineGraceDays) * finePerDay;
-  };
 
   const onReturn = async (id: string) => {
     setReturningId(id);
     try {
       const res = await handleReturnBook(id);
       toast.success(res.message || "歸還成功");
-      refetch();
+      await refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "歸還失敗");
     } finally {
@@ -69,7 +63,24 @@ function BorrowRecordsPage() {
     }
   };
 
-    const sortedRecords = [...(data ?? [])].sort((a, b) =>
+  const onPay = async (penaltyId: number, amount: number) => {
+    const confirmed = window.confirm(
+      `確認繳納 NT$${amount.toFixed(2)}？本系統為專題展示，採用模擬付款，不會實際扣款。`,
+    );
+    if (!confirmed) return;
+    setPayingId(penaltyId);
+    try {
+      await payPenalty(penaltyId, user!.studentId);
+      toast.success("罰款已繳納");
+      await refetch();
+    } catch (paymentError) {
+      toast.error(paymentError instanceof Error ? paymentError.message : "繳納罰款失敗");
+    } finally {
+      setPayingId(null);
+    }
+  };
+
+  const sortedRecords = [...(data?.records ?? [])].sort((a, b) =>
     String(b.borrowDate ?? "").localeCompare(String(a.borrowDate ?? "")),
   );
 
@@ -82,7 +93,7 @@ function BorrowRecordsPage() {
             <LoadingState />
           ) : error ? (
             <ErrorState message={error} onRetry={refetch} />
-          ) : !data || data.length === 0 ? (
+          ) : !data?.records || data.records.length === 0 ? (
             <EmptyState title="尚無借閱紀錄" description="您還沒有任何借閱紀錄。" />
           ) : (
             <Table>
@@ -98,37 +109,69 @@ function BorrowRecordsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedRecords.map((r) => (
-                  <TableRow key={r.id} className={r.status === "OVERDUE" ? "bg-destructive/5" : ""}>
-                    <TableCell className="font-medium">{r.bookTitle}</TableCell>
-                    <TableCell>{formatDate(r.borrowDate)}</TableCell>
-                    <TableCell className={r.status === "OVERDUE" ? "font-medium text-destructive" : ""}>
-                      {formatDate(r.dueDate)}
-                    </TableCell>
-                    <TableCell>{formatDate(r.returnDate)}</TableCell>
-                    <TableCell><StatusBadge status={r.status} /></TableCell>
-                    <TableCell>{r.status === "OVERDUE" ? `NT$${estimateFine(r.dueDate).toFixed(2)}` : "—"}</TableCell>
-                    <TableCell className="text-right">
-                      {r.status !== "RETURNED" ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={returningId === r.id}
-                          onClick={() => onReturn(r.id)}
-                        >
-                          {returningId === r.id ? (
-                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Undo2 className="mr-1 h-4 w-4" />
-                          )}
-                          還書
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {sortedRecords.map((r) => {
+                  const penalty = penaltiesByRecordId.get(r.id);
+                  return (
+                    <TableRow key={r.id} className={r.status === "OVERDUE" ? "bg-destructive/5" : ""}>
+                      <TableCell className="font-medium">{r.bookTitle}</TableCell>
+                      <TableCell>{formatDate(r.borrowDate)}</TableCell>
+                      <TableCell className={r.status === "OVERDUE" ? "font-medium text-destructive" : ""}>
+                        {formatDate(r.dueDate)}
+                      </TableCell>
+                      <TableCell>{formatDate(r.returnDate)}</TableCell>
+                      <TableCell><StatusBadge status={r.status} /></TableCell>
+                      <TableCell>
+                        {!penalty ? "—" : !penalty.settled ? (
+                          <div>
+                            <p className="font-medium text-destructive">
+                              目前累積 NT${penalty.amount.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">還書後結算</p>
+                          </div>
+                        ) : (
+                          <div>
+                            <p>NT${penalty.amount.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {penalty.status === "OPEN"
+                                ? "未繳"
+                                : penalty.status === "PAID" ? "已繳" : "已免除"}
+                            </p>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {penalty?.payable && penalty.penaltyId ? (
+                          <Button
+                            size="sm"
+                            disabled={payingId === penalty.penaltyId}
+                            onClick={() => onPay(penalty.penaltyId!, penalty.amount)}
+                          >
+                            {payingId === penalty.penaltyId
+                              ? <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                              : <CreditCard className="mr-1 h-4 w-4" />}
+                            繳納罰款
+                          </Button>
+                        ) : r.status !== "RETURNED" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={returningId === r.id}
+                            onClick={() => onReturn(r.id)}
+                          >
+                            {returningId === r.id ? (
+                              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Undo2 className="mr-1 h-4 w-4" />
+                            )}
+                            還書
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

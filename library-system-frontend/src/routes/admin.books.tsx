@@ -42,6 +42,9 @@ export const Route = createFileRoute("/admin/books")({
 
 const EMPTY_FORM: BookFormValues = {
   title: "",
+  authors: "",
+  subjects: "",
+  isbns: [],
   publisher: "",
   publishYear: new Date().getFullYear(),
   edition: "",
@@ -140,7 +143,7 @@ function AdminBooksPage() {
 
       <Card className="mb-4">
         <CardContent className="p-4">
-          <SearchBar placeholder="搜尋書名、出版社、編號..." defaultValue={keyword} onSearch={setKeyword} />
+          <SearchBar placeholder="搜尋書名、作者、主題、出版社、ISBN 或編號..." defaultValue={keyword} onSearch={setKeyword} />
         </CardContent>
       </Card>
 
@@ -156,7 +159,7 @@ function AdminBooksPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">編號</TableHead>
+                  <TableHead className="w-[100px]">序號</TableHead>
                   <TableHead>書名</TableHead>
                   <TableHead>出版社</TableHead>
                   <TableHead className="w-[100px]">出版年</TableHead>
@@ -166,9 +169,9 @@ function AdminBooksPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dedupedBooks.map((b) => (
+                {dedupedBooks.map((b, index) => (
                   <TableRow key={b.id}>
-                    <TableCell className="font-mono text-xs">{b.id}</TableCell>
+                    <TableCell className="font-mono text-xs">{index + 1}</TableCell>
                     <TableCell className="font-medium">{b.title}</TableCell>
                     <TableCell>{b.publisher}</TableCell>
                     <TableCell>{b.publishYear}</TableCell>
@@ -253,8 +256,20 @@ function AdminBooksPage() {
               <div className="flex-1 overflow-y-auto px-6 py-4">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                   <div>
-                    <p className="text-xs text-muted-foreground">編號</p>
+                    <p className="text-xs text-muted-foreground">館藏 ID</p>
                     <p className="mt-1">{detail.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">作者</p>
+                    <p className="mt-1">{detail.authors || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">主題</p>
+                    <p className="mt-1">{detail.subjects || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">ISBN</p>
+                    <p className="mt-1">{detail.isbns.length > 0 ? detail.isbns.join("、") : "—"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">出版社</p>
@@ -416,7 +431,7 @@ function BookFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -426,6 +441,27 @@ function BookFormDialog({
             <Input
               value={values.title}
               onChange={(e) => update("title", e.target.value)}
+            />
+          </FormField>
+
+          <FormField label="作者（多位請以逗號分隔）" className="col-span-2">
+            <Input
+              value={values.authors}
+              onChange={(e) => update("authors", e.target.value)}
+            />
+          </FormField>
+
+          <FormField label="主題（多個請以逗號分隔）" className="col-span-2">
+            <Input
+              value={values.subjects}
+              onChange={(e) => update("subjects", e.target.value)}
+            />
+          </FormField>
+
+          <FormField label="ISBN（多筆請以逗號分隔）" className="col-span-2">
+            <Input
+              value={values.isbns.join(", ")}
+              onChange={(e) => update("isbns", e.target.value.split(","))}
             />
           </FormField>
 
