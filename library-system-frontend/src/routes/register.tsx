@@ -53,6 +53,9 @@ function RegisterPage() {
     const v = validate();
     setErrors(v);
     if (Object.keys(v).length) return;
+    if (level === "VIP" && !window.confirm("確認註冊 VIP？本次為模擬付款，不會實際扣款。")) {
+      return;
+    }
     setLoading(true);
     try {
       await register({
@@ -60,6 +63,7 @@ function RegisterPage() {
         name: name.trim(),
         password,
         level,
+        paymentConfirmed: level === "VIP" ? true : undefined,
       });
       toast.success("註冊成功，請使用您的學號登入");
       navigate({ to: "/login" });
@@ -99,7 +103,21 @@ function RegisterPage() {
                 <option value="NORMAL">一般使用者</option>
                 <option value="VIP">VIP 使用者</option>
               </select>
-            </Field>            
+            </Field>
+            {level === "VIP" && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <p className="mb-2 font-semibold">VIP 會員規則</p>
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>費用：NT$99 / 月</li>
+                  <li>借閱期限：14 天</li>
+                  <li>可同時借閱：5 本</li>
+                  <li>預約優先權：VIP 使用者優先</li>
+                </ul>
+                <p className="mt-3 text-xs text-amber-800">
+                  本系統為專題展示，採用模擬付款流程，不會實際扣款。
+                </p>
+              </div>
+            )}
             <Field label="密碼" id="password" error={errors.password}>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少 6 字元" />
             </Field>

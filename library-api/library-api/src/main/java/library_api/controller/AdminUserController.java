@@ -2,6 +2,8 @@ package library_api.controller;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,8 +12,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import com.yourteam.library.entity.BorrowRecord;
+import com.yourteam.library.entity.Book;
+import com.yourteam.library.repository.BookRepository;
 import com.yourteam.library.repository.BorrowRecordRepository;
 
 import com.yourteam.library.entity.User;
@@ -20,6 +26,7 @@ import com.yourteam.library.service.UserService;
 import library_api.dto.ApiResponse;
 import library_api.dto.AdminUserDetailResponse;
 import library_api.dto.UserResponse;
+import library_api.dto.UpdateRoleLevelRequest;
 import com.yourteam.library.repository.UserRepository;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,11 +38,13 @@ public class AdminUserController {
 
     private final UserService userService;
     private final BorrowRecordRepository borrowRecordRepository;
+    private final BookRepository bookRepository;
     private final UserRepository userRepository;
 
     public AdminUserController() {
         this.userService = new UserService();
         this.borrowRecordRepository = new BorrowRecordRepository();
+        this.bookRepository = new BookRepository();
         this.userRepository = new UserRepository();
     }
 
@@ -69,6 +78,27 @@ public class AdminUserController {
         return new ApiResponse<>(false, null, "停權失敗或找不到使用者");
     }
 
+    @PutMapping("/{studentId}/role-level")
+    public ApiResponse<Boolean> updateRoleLevel(
+            @PathVariable String studentId,
+            @RequestBody UpdateRoleLevelRequest request) {
+        User user = userRepository.findByStudentNo(studentId);
+        if (user == null) {
+            return new ApiResponse<>(false, null, "找不到使用者");
+        }
+
+        String roleLevel = request.getRoleLevel() == null ? "" : request.getRoleLevel().trim().toUpperCase();
+        if (!"NORMAL".equals(roleLevel) && !"VIP".equals(roleLevel)) {
+            return new ApiResponse<>(false, null, "會員等級只能是 NORMAL 或 VIP");
+        }
+
+        boolean success = userRepository.updateRoleLevelByStudentNo(studentId, roleLevel);
+        if (!success) {
+            return new ApiResponse<>(false, null, "會員等級更新失敗");
+        }
+        return new ApiResponse<>(true, true, "會員等級已更新為 " + roleLevel);
+    }
+
 
     @GetMapping("/{studentId}/borrow-history")
     public ApiResponse<List<BorrowRecord>> getBorrowHistory(@PathVariable String studentId) {
@@ -88,12 +118,26 @@ public class AdminUserController {
         List<BorrowRecord> records = borrowRecordRepository.findRecordsByUserId(user.getUserId());
         List<Map<String, Object>> recordMaps = new ArrayList<>();
         for (BorrowRecord r : records) {
+            Book book = bookRepository.findByBookId(r.getBookId());
+            LocalDateTime comparisonDate = r.getReturnDate() == null ? LocalDateTime.now() : r.getReturnDate();
+            boolean overdue = r.getDueDate() != null && comparisonDate.isAfter(r.getDueDate());
+            long overdueDays = overdue
+                    ? Math.max(1, ChronoUnit.DAYS.between(r.getDueDate(), comparisonDate))
+                    : 0;
+            String status = r.getReturnDate() != null
+                    ? "RETURNED"
+                    : overdue ? "OVERDUE" : "BORROWED";
+
             Map<String, Object> m = new HashMap<>();
             m.put("recordId", r.getRecordId());
             m.put("bookId", r.getBookId());
+            m.put("bookTitle", book == null ? "未知書籍" : book.getTitle());
             m.put("borrowDate", r.getBorrowDate());
             m.put("dueDate", r.getDueDate());
             m.put("returnDate", r.getReturnDate());
+            m.put("status", status);
+            m.put("overdueDays", overdueDays);
+            m.put("fineAmount", overdueDays * 5);
             recordMaps.add(m);
         }
 
