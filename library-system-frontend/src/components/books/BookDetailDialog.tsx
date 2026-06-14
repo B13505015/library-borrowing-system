@@ -57,6 +57,7 @@ export function BookDetailDialog({ book, user, open, onOpenChange, onUpdated }: 
     book.status,
     !!reservationInfo?.alreadyBorrowing,
     reservationInfo?.activeReservationStatus,
+    reservationInfo?.canBorrowNotified ?? false,
   );
   const availableDays = user?.level === "VIP" ? [1, 3, 7, 14] : [1, 3, 7];
 
@@ -64,7 +65,12 @@ export function BookDetailDialog({ book, user, open, onOpenChange, onUpdated }: 
     if (!user) return;
     setSubmitting(true);
     try {
-      if (reservationInfo?.activeReservationStatus === "NOTIFIED" && reservationInfo.reservationId) {
+      if (
+        reservationInfo?.activeReservationStatus === "NOTIFIED"
+        && reservationInfo.canBorrowNotified
+        && book.status === "AVAILABLE"
+        && reservationInfo.reservationId
+      ) {
         await fulfillReservation(user.userId, reservationInfo.reservationId, borrowDays);
       } else if (book.status === "BORROWED") {
         await reserveBook(user.userId, Number(book.id));
@@ -96,7 +102,13 @@ export function BookDetailDialog({ book, user, open, onOpenChange, onUpdated }: 
           </dl>
           {reservationInfo && <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
             目前預約人數：{reservationInfo.waitingCount} 人
-            {reservationInfo.activeReservationStatus === "NOTIFIED" ? "｜你的預約已到書" : reservationInfo.myQueuePosition ? `｜你是第 ${reservationInfo.myQueuePosition} 位（已預約）` : "｜你尚未在預約隊列"}
+            {reservationInfo.activeReservationStatus === "NOTIFIED" && reservationInfo.canBorrowNotified && book.status === "AVAILABLE"
+              ? "｜你的預約已到書"
+              : reservationInfo.activeReservationStatus === "NOTIFIED"
+                ? "｜書籍目前已借出，請重新預約或等待狀態更新"
+                : reservationInfo.myQueuePosition
+                  ? `｜你是第 ${reservationInfo.myQueuePosition} 位（已預約）`
+                  : "｜你尚未在預約隊列"}
           </div>}
           <div className="mt-4"><label className="mb-2 block text-sm font-medium">租借期限</label><select value={borrowDays} onChange={(e)=>setBorrowDays(Number(e.target.value) as 1|3|7|14)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">{availableDays.map((day)=><option key={day} value={day}>{day} 天</option>)}</select></div>
           <section className="mt-4"><h3 className="mb-2 text-sm font-semibold">近期借還紀錄</h3>{loading?<p className="text-sm text-muted-foreground">載入中...</p>:history.length===0?<p className="text-sm text-muted-foreground">目前沒有借還紀錄。</p>:<div className="max-h-56 overflow-y-auto rounded-md border"><table className="w-full text-sm"><tbody>{history.map((r)=><tr key={r.id} className="border-t"><td className="px-3 py-2">{r.studentName}</td><td className="px-3 py-2">{formatDate(r.borrowDate)}</td><td className="px-3 py-2">{formatDate(r.dueDate)}</td><td className="px-3 py-2"><StatusBadge status={r.status}/></td></tr>)}</tbody></table></div>}</section>
