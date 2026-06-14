@@ -1,11 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { BookCopy, BookOpen, CircleDollarSign, ClipboardList, LayoutDashboard, MessageSquare, Users } from "lucide-react";
+import { BarChart3, BookCopy, BookOpen, CircleDollarSign, ClipboardList, LayoutDashboard, MessageSquare, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/admin", label: "總覽", icon: LayoutDashboard, exact: true },
   { to: "/admin/books", label: "書籍管理", icon: BookCopy, exact: false },
+  { to: "/admin/analytics", label: "書籍分析", icon: BarChart3, exact: false },
   { to: "/admin/users", label: "使用者管理", icon: Users, exact: false },
   { to: "/admin/records", label: "借閱紀錄管理", icon: ClipboardList, exact: false },
   { to: "/admin/penalties", label: "罰款管理", icon: CircleDollarSign, exact: false },
