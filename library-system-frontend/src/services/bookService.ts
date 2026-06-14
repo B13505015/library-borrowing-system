@@ -171,6 +171,9 @@ export type ReservationInfo = {
   myQueuePosition: number | null;
   alreadyBorrowing: boolean;
   alreadyReserved: boolean;
+  activeReservationStatus: "WAITING" | "NOTIFIED" | null;
+  reservationId: number | null;
+  canBorrowNotified: boolean;
 };
 
 export type MyReservation = {
@@ -183,6 +186,7 @@ export type MyReservation = {
   createdAt: string | null;
   notifiedAt: string | null;
   expiresAt: string | null;
+  canBorrowNotified: boolean;
 };
 
 export async function getReservationInfo(bookId: string | number, userId?: number): Promise<ApiResponse<ReservationInfo>> {

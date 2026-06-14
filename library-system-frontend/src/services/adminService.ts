@@ -127,7 +127,17 @@ export interface AdminUserDetail {
   status: string;
   favoriteCount: number;
   reviewCount: number;
-  borrowRecords: Array<{ recordId: number; bookId: number; borrowDate: string; dueDate: string; returnDate: string | null }>;
+  borrowRecords: Array<{
+    recordId: number;
+    bookId: number;
+    bookTitle: string;
+    borrowDate: string;
+    dueDate: string;
+    returnDate: string | null;
+    status: "BORROWED" | "RETURNED" | "OVERDUE";
+    overdueDays: number;
+    fineAmount: number;
+  }>;
 }
 
 export async function getUserDetail(studentId: string): Promise<ApiResponse<AdminUserDetail>> {
