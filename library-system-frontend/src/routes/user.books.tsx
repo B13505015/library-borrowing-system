@@ -136,7 +136,7 @@ function SearchBooksPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">編號</TableHead>
+                  <TableHead className="w-[100px]">序號</TableHead>
                   <TableHead>書名</TableHead>
                   <TableHead>出版社</TableHead>
                   <TableHead className="w-[100px]">出版年</TableHead>
@@ -145,7 +145,7 @@ function SearchBooksPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((b) => {
+                {data.map((b, index) => {
                   const reservation = reservationsByBookId.get(Number(b.id));
                   const action = getBookAction(
                     b.status,
@@ -155,7 +155,7 @@ function SearchBooksPage() {
                   );
                   return (
                   <TableRow key={b.id}>
-                    <TableCell className="font-mono text-xs">{b.id}</TableCell>
+                    <TableCell>{index + 1}</TableCell>
                     <TableCell><p className="font-medium">{b.title}</p><p className="text-xs text-muted-foreground">{b.authors || "—"}</p></TableCell>
                     <TableCell>{b.publisher}</TableCell>
                     <TableCell>{b.publishYear}</TableCell>
