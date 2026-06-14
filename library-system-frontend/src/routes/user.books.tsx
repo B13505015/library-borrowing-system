@@ -146,10 +146,12 @@ function SearchBooksPage() {
               </TableHeader>
               <TableBody>
                 {data.map((b) => {
+                  const reservation = reservationsByBookId.get(Number(b.id));
                   const action = getBookAction(
                     b.status,
                     activeBorrowedBookIds.has(Number(b.id)),
-                    reservationsByBookId.get(Number(b.id))?.status,
+                    reservation?.status,
+                    reservation?.canBorrowNotified,
                   );
                   return (
                   <TableRow key={b.id}>

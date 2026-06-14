@@ -186,6 +186,7 @@ export type MyReservation = {
   createdAt: string | null;
   notifiedAt: string | null;
   expiresAt: string | null;
+  canBorrowNotified: boolean;
 };
 
 export async function getReservationInfo(bookId: string | number, userId?: number): Promise<ApiResponse<ReservationInfo>> {

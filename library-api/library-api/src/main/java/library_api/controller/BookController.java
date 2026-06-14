@@ -83,6 +83,7 @@ public class BookController {
     public ApiResponse<ReservationInfoResponse> getReservationInfo(
             @PathVariable int bookId,
             @RequestParam(required = false) Integer userId) {
+        reservationRepository.repairInvalidNotifiedReservations(bookId);
         int waitingCount = reservationRepository.countWaitingReservations(bookId);
         Integer myQueuePosition = userId == null ? null : reservationRepository.findUserQueuePosition(userId, bookId);
         boolean alreadyBorrowing = userId != null && borrowRecordRepository.hasActiveBorrowByUserAndBook(userId, bookId);

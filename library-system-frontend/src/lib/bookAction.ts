@@ -15,8 +15,8 @@ export function getBookAction(
     return { label: "立即借閱", disabled: false, tone: "borrow" as const };
   }
   if (reservationStatus === "WAITING") return { label: "已在隊列中", disabled: true, tone: "disabled" as const };
-  if (reservationStatus === "NOTIFIED" && status === "AVAILABLE" && !canBorrowNotified) {
-    return { label: "不可借", disabled: true, tone: "disabled" as const };
+  if (reservationStatus === "NOTIFIED") {
+    return { label: "等待狀態更新", disabled: true, tone: "disabled" as const };
   }
   if (status === "AVAILABLE") return { label: "借閱", disabled: false, tone: "borrow" as const };
   if (status === "BORROWED") return { label: "預約", disabled: false, tone: "reserve" as const };

@@ -42,7 +42,7 @@ function Page() {
   useEffect(() => { refreshUserState(); }, [user?.userId]);
 
   return <><PageHeader title="我的收藏" description="你收藏的書籍清單" />
-    <div className="grid gap-3 md:grid-cols-2">{(data ?? []).map((b) => {const action=getBookAction(b.status,activeBorrowedBookIds.has(Number(b.id)),reservationsByBookId.get(Number(b.id))?.status); return <Card key={b.id}><CardContent className="space-y-2 p-4">
+    <div className="grid gap-3 md:grid-cols-2">{(data ?? []).map((b) => {const reservation=reservationsByBookId.get(Number(b.id)); const action=getBookAction(b.status,activeBorrowedBookIds.has(Number(b.id)),reservation?.status,reservation?.canBorrowNotified); return <Card key={b.id}><CardContent className="space-y-2 p-4">
       <div className="flex items-center justify-between"><h3 className="font-semibold">{b.title}</h3><StatusBadge status={b.status} /></div>
       <p className="text-sm text-muted-foreground">編號：{b.id}</p>
       <p className="text-sm text-muted-foreground">出版社：{b.publisher}</p>
