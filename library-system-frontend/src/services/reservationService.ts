@@ -13,3 +13,22 @@ export async function reserveBook(userId: number, bookId: number): Promise<ApiRe
     throw new ApiError("預約失敗");
   }
 }
+
+export async function cancelReservation(userId: number, reservationId: number): Promise<ApiResponse<boolean>> {
+  const response = await http.put<boolean>(`/reservations/${reservationId}/cancel`, { userId });
+  if (!response.success) throw new ApiError(response.message || "取消預約失敗");
+  return response;
+}
+
+export async function fulfillReservation(
+  userId: number,
+  reservationId: number,
+  borrowDays: number,
+): Promise<ApiResponse<boolean>> {
+  const response = await http.post<boolean>(`/reservations/${reservationId}/fulfill`, {
+    userId,
+    borrowDays,
+  });
+  if (!response.success) throw new ApiError(response.message || "借閱失敗");
+  return response;
+}

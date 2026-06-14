@@ -168,7 +168,8 @@ public class AuthController {
                 request.getStudentId(),
                 request.getName(),
                 request.getPassword(),
-                request.getLevel()
+                request.getLevel(),
+                request.getPaymentConfirmed()
         );
 
         switch (result) {
@@ -176,6 +177,10 @@ public class AuthController {
                 return new ApiResponse<>(true, true, "註冊成功");
             case "STUDENT_EXISTS":
                 return new ApiResponse<>(false, null, "此學號已被註冊");
+            case "INVALID_ROLE_LEVEL":
+                return new ApiResponse<>(false, null, "會員等級只能是 NORMAL 或 VIP");
+            case "VIP_PAYMENT_REQUIRED":
+                return new ApiResponse<>(false, null, "請先完成 VIP 模擬付款確認");
             default:
                 return new ApiResponse<>(false, null, "註冊失敗");
         }
