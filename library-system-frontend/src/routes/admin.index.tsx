@@ -2,13 +2,22 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { AlertTriangle, BookCopy, BookOpen, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
+import { EmptyState } from "@/components/common/EmptyState";
 import { useAsync } from "@/hooks/useAsync";
-import { fetchDashboardStats, getRecentBorrowRecords, getOverdueRecords } from "@/services/adminService";
+import {
+  fetchDashboardStats,
+  getRecentBorrowRecords,
+  getOverdueRecords,
+  getSubjectBorrowStats,
+} from "@/services/adminService";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate } from "@/lib/format";
 
@@ -22,6 +31,7 @@ function AdminDashboardPage() {
   const stats = useAsync(() => fetchDashboardStats().then((r) => r.data), []);
   const recent = useAsync(() => getRecentBorrowRecords(6).then((r) => r.data), []);
   const overdue = useAsync(() => getOverdueRecords().then((r) => r.data), []);
+  const subjectStats = useAsync(() => getSubjectBorrowStats().then((r) => r.data), []);
 
   const uniqueOverdue = useMemo(() => {
     const rows = overdue.data ?? [];
