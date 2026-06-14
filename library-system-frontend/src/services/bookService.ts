@@ -22,6 +22,7 @@ export type PopularBook = {
   borrowCount: number;
   avgRating: number;
   reviewCount: number;
+  status: "AVAILABLE" | "BORROWED";
 };
 
 // 查全部書籍
@@ -157,7 +158,13 @@ export async function getPopularBooks(sortBy: "borrow" | "rating", limit = 5): P
   try {
     const response = await http.get<PopularBook[]>(`/books/popular?sortBy=${sortBy}&limit=${limit}`);
     if (!response.success || !response.data) throw new ApiError(response.message || "查詢熱門書籍失敗");
-    return response;
+    return {
+      ...response,
+      data: response.data.map((book) => ({
+        ...book,
+        status: normalizeBookStatus(book.status) === "AVAILABLE" ? "AVAILABLE" : "BORROWED",
+      })),
+    };
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError("查詢熱門書籍失敗");

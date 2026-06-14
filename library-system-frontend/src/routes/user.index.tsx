@@ -30,7 +30,7 @@ function UserDashboardPage() {
   const [reservationActionId, setReservationActionId] = useState<number | null>(null);
 
   const { data, loading, error, refetch } = useAsync(() => getMyBorrowRecords(user!.studentId).then((r) => r.data), [user?.studentId]);
-  const { data: rankedBooks, refetch: refetchRanked } = useAsync(() => getPopularBooks(rankMode === "BORROW" ? "borrow" : "rating", 20).then((r) => r.data), [rankMode]);
+  const { data: rankedBooks, refetch: refetchRanked, setData: setRankedBooks } = useAsync(() => getPopularBooks(rankMode === "BORROW" ? "borrow" : "rating", 20).then((r) => r.data), [rankMode]);
   const { data: reservationNotifications, refetch: refetchReservationNotifications } = useAsync(() => user ? getReservationNotifications(user.userId).then((r) => r.data) : Promise.resolve([]), [user?.userId]);
   const { data: myReservations, refetch: refetchMyReservations } = useAsync(() => user ? getMyReservations(user.userId).then((r) => r.data) : Promise.resolve([]), [user?.userId]);
 
@@ -54,7 +54,13 @@ function UserDashboardPage() {
     setBorrowDays(user?.level === "VIP" ? 14 : 7);
     try {
       const books = await getAllBooks();
-      setDetail(books.data.find((book) => Number(book.id) === bookId) ?? {
+      const latestBook = books.data.find((book) => Number(book.id) === bookId);
+      if (latestBook) {
+        setRankedBooks((rankedBooks ?? []).map((book) =>
+          book.bookId === bookId ? { ...book, status: latestBook.status === "AVAILABLE" ? "AVAILABLE" : "BORROWED" } : book,
+        ));
+      }
+      setDetail(latestBook ?? {
         id: String(bookId), title, publisher: "", publishYear: 0, edition: "", format: "", source: "", note: "", status,
       } as Book);
     } catch {
@@ -89,7 +95,7 @@ function UserDashboardPage() {
     try {
       const response = await cancelReservation(user.userId, reservationId);
       toast.success(response.message || "已取消預約");
-      await Promise.all([refetchMyReservations(), refetchReservationNotifications()]);
+      await refreshDashboard();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "取消預約失敗");
     } finally {
@@ -112,7 +118,18 @@ function UserDashboardPage() {
       <QuickAction to="/user/reviews" icon={MessageSquare} title="書評專區" desc="查看與撰寫書評" />
     </div>}
 
-    <BookDetailDialog book={detail} user={user} open={!!detail} onOpenChange={(open)=>!open&&setDetail(null)} onUpdated={refreshDashboard} />
+    <BookDetailDialog
+      book={detail}
+      user={user}
+      open={!!detail}
+      onOpenChange={(open) => {
+        if (!open) {
+          setDetail(null);
+          void refreshDashboard();
+        }
+      }}
+      onUpdated={refreshDashboard}
+    />
   </>;
 }
 

@@ -328,7 +328,7 @@ public List<PopularBookResponse> findPopularBooks(String sortBy, int limit) {
         }
         String sql = "SELECT COALESCE(av.available_book_id, bo.borrowed_book_id) AS book_id, stats.title, "
                 + "stats.borrow_count, stats.avg_rating, stats.review_count, "
-                + "CASE WHEN stats.available_count > 0 THEN 'AVAILABLE' ELSE 'BORROWED' END AS status "
+                + "selected_book.status AS status "
                 + "FROM ( "
                 + "  SELECT b.title, COUNT(DISTINCT br.record_id) AS borrow_count, SUM(CASE WHEN b.status = 'AVAILABLE' THEN 1 ELSE 0 END) AS available_count, "
                 + "         COALESCE(AVG(r.rating), 0) AS avg_rating, COUNT(DISTINCT r.review_id) AS review_count "
@@ -340,6 +340,7 @@ public List<PopularBookResponse> findPopularBooks(String sortBy, int limit) {
                 + ") stats "
                 + "LEFT JOIN (SELECT title, MIN(book_id) AS available_book_id FROM books WHERE status = 'AVAILABLE' GROUP BY title) av ON av.title = stats.title "
                 + "LEFT JOIN (SELECT title, MIN(book_id) AS borrowed_book_id FROM books WHERE status = 'BORROWED' GROUP BY title) bo ON bo.title = stats.title "
+                + "JOIN books selected_book ON selected_book.book_id = COALESCE(av.available_book_id, bo.borrowed_book_id) "
                 + "ORDER BY " + orderBy + " LIMIT ?";
 
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
