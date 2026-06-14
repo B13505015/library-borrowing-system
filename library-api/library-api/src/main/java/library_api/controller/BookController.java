@@ -86,8 +86,17 @@ public class BookController {
         int waitingCount = reservationRepository.countWaitingReservations(bookId);
         Integer myQueuePosition = userId == null ? null : reservationRepository.findUserQueuePosition(userId, bookId);
         boolean alreadyBorrowing = userId != null && borrowRecordRepository.hasActiveBorrowByUserAndBook(userId, bookId);
-        boolean alreadyReserved = myQueuePosition != null;
-        ReservationInfoResponse response = new ReservationInfoResponse(waitingCount, myQueuePosition, alreadyBorrowing, alreadyReserved);
+        String activeReservationStatus = userId == null ? null : reservationRepository.findActiveReservationStatus(userId, bookId);
+        Integer reservationId = userId == null ? null : reservationRepository.findActiveReservationId(userId, bookId);
+        boolean alreadyReserved = activeReservationStatus != null;
+        Book book = bookRepository.findByBookId(bookId);
+        boolean canBorrowNotified = "NOTIFIED".equals(activeReservationStatus)
+                && book != null
+                && "AVAILABLE".equals(book.getStatus())
+                && !borrowRecordRepository.hasActiveBorrowByBook(bookId);
+        ReservationInfoResponse response = new ReservationInfoResponse(
+                waitingCount, myQueuePosition, alreadyBorrowing, alreadyReserved, activeReservationStatus, reservationId,
+                canBorrowNotified);
         return new ApiResponse<>(true, response, "查詢預約資訊成功");
     }
 

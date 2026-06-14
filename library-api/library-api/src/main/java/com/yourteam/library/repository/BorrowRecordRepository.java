@@ -357,4 +357,16 @@ public class BorrowRecordRepository {
         }
         return false;
     }
+
+    public boolean hasActiveBorrowByBook(int bookId) {
+        String sql = "SELECT 1 FROM borrow_records WHERE book_id = ? AND return_date IS NULL LIMIT 1";
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, bookId);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }
